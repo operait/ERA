@@ -1,0 +1,15 @@
+I'm building Era, an HR assistant for Fitness Connection. She integrates into their Microsoft Teams to answer questions from managers. I need to start with the absolute minimum viable database schema in Supabase to store their HR policy documents and enable semantic search.
+
+Current context:
+- I have Fitness Connection's policy data in JSONL files (incident escalation matrix, corrective action templates, voluntary termination workflows, etc.)
+- I need to ingest this data and make it searchable via pgvector
+- The bot will run in Teams and answer manager questions
+
+Create the minimal Supabase schema I need:
+1. Core tables for documents and embeddings
+2. Basic RLS policies for tenant isolation
+3. A simple vector search function
+
+Make it production-simple, not enterprise-complex. I'm solo and have 1 week.
+
+Build out a Todo list and document for Era
