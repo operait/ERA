@@ -302,11 +302,10 @@ async function startServer(): Promise<void> {
   });
 
   // Bot messages endpoint
-  server.post('/api/messages', async (req: Request, res: Response, next: Next) => {
+  server.post('/api/messages', async (req: Request, res: Response) => {
     await adapter.process(req, res, async (context) => {
       await bot.run(context);
     });
-    return next();
   });
 
   // Start server
