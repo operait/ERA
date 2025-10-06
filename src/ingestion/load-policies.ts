@@ -71,13 +71,19 @@ export class PolicyLoader {
    */
   private async processDocument(jsonlDoc: JSONLDocument, sourceId: string): Promise<void> {
     try {
+      // Derive category from metadata or use a default
+      const category = jsonlDoc.category ||
+                      jsonlDoc.metadata?.topic ||
+                      jsonlDoc.metadata?.type ||
+                      'general';
+
       // Insert document
       const { data: document, error: docError } = await supabase
         .from('documents')
         .insert({
           title: jsonlDoc.title,
           content: jsonlDoc.content,
-          category: jsonlDoc.category,
+          category: category,
           metadata: {
             ...jsonlDoc.metadata,
             source_id: sourceId,
