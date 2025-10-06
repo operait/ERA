@@ -1,5 +1,5 @@
 import { ActivityHandler, MessageFactory, TurnContext, ActivityTypes } from 'botbuilder';
-import restify, { Request, Response } from 'restify';
+import restify, { Request, Response, Next } from 'restify';
 import { BotFrameworkAdapter } from 'botbuilder';
 import { DocumentRetriever } from '../retrieval/search';
 import { ResponseGenerator } from '../templates/generator';
@@ -296,15 +296,17 @@ async function startServer(): Promise<void> {
   const bot = createBot();
 
   // Health check endpoint
-  server.get('/health', (req: Request, res: Response) => {
+  server.get('/health', (req: Request, res: Response, next: Next) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+    return next();
   });
 
   // Bot messages endpoint
-  server.post('/api/messages', async (req: Request, res: Response) => {
+  server.post('/api/messages', async (req: Request, res: Response, next: Next) => {
     await adapter.process(req, res, async (context) => {
       await bot.run(context);
     });
+    return next();
   });
 
   // Start server
