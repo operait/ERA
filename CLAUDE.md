@@ -9,7 +9,7 @@ ERA is a Microsoft Teams bot that helps Fitness Connection managers access HR po
 
 ## Tech Stack
 - **Database**: Supabase (PostgreSQL + pgvector for semantic search)
-- **Embeddings**: OpenAI text-embedding-3-large (3072 dimensions)
+- **Embeddings**: OpenAI text-embedding-3-small (1536 dimensions)
 - **LLM**: Claude Sonnet 4.5 via Anthropic API
 - **Bot Framework**: Microsoft Bot Framework for Teams integration
 - **Runtime**: Node.js with TypeScript

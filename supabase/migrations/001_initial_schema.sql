@@ -18,7 +18,7 @@ CREATE TABLE document_chunks (
   document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
   chunk_text TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
-  embedding VECTOR(3072), -- OpenAI text-embedding-3-large dimensions
+  embedding VECTOR(1536), -- OpenAI text-embedding-3-small or ada-002 (1536 dimensions)
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -49,7 +49,8 @@ CREATE TABLE query_logs (
 CREATE INDEX ON documents (category);
 CREATE INDEX ON documents (created_at);
 CREATE INDEX ON document_chunks (document_id);
-CREATE INDEX ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- Use HNSW index instead of ivfflat for embeddings > 2000 dimensions
+CREATE INDEX ON document_chunks USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX ON templates (category);
 CREATE INDEX ON query_logs (created_at);
 

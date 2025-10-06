@@ -6,7 +6,7 @@
 ### ✅ Complete Components
 - **Database Schema**: Supabase with pgvector for semantic search
 - **Data Pipeline**: JSONL ingestion with intelligent text chunking
-- **Embeddings**: OpenAI text-embedding-3-large integration
+- **Embeddings**: OpenAI text-embedding-3-small integration
 - **RAG System**: Vector similarity search with query expansion
 - **Templates**: HR response templates with placeholder replacement
 - **Teams Bot**: Microsoft Bot Framework with adaptive responses

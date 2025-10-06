@@ -10,7 +10,7 @@ import { JSONLDocument, PolicyDocument, DocumentChunk } from '../types/index.js'
 export class PolicyLoader {
   private readonly dataDir: string;
 
-  constructor(dataDir: string = './data') {
+  constructor(dataDir: string = './tenant/fitness_connection') {
     this.dataDir = dataDir;
   }
 
@@ -195,7 +195,7 @@ export class PolicyLoader {
 async function main() {
   const args = process.argv.slice(2);
   const command = args[0] || 'load';
-  const dataDir = args[1] || './data';
+  const dataDir = args[1] || './tenant/fitness_connection';
 
   const loader = new PolicyLoader(dataDir);
 

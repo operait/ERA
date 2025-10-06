@@ -1,6 +1,6 @@
 -- Vector similarity search function
 CREATE OR REPLACE FUNCTION similarity_search(
-  query_embedding VECTOR(3072),
+  query_embedding VECTOR(1536),
   similarity_threshold FLOAT DEFAULT 0.75,
   match_count INTEGER DEFAULT 5
 )
@@ -37,7 +37,7 @@ $$;
 
 -- Function to search by category
 CREATE OR REPLACE FUNCTION similarity_search_by_category(
-  query_embedding VECTOR(3072),
+  query_embedding VECTOR(1536),
   category_filter TEXT,
   similarity_threshold FLOAT DEFAULT 0.75,
   match_count INTEGER DEFAULT 5
