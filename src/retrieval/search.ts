@@ -1,6 +1,6 @@
-import { supabase } from '../lib/supabase.js';
-import { EmbeddingsGenerator } from '../embeddings/generate.js';
-import { SearchResult } from '../types/index.js';
+import { supabase } from '../lib/supabase';
+import { EmbeddingsGenerator } from '../embeddings/generate';
+import { SearchResult } from '../types/index';
 
 export interface SearchOptions {
   maxResults: number;

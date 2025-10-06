@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { supabase } from '../lib/supabase.js';
-import { chunkByStructure } from '../lib/chunker.js';
-import { JSONLDocument, PolicyDocument, DocumentChunk } from '../types/index.js';
+import { supabase } from '../lib/supabase';
+import { chunkByStructure } from '../lib/chunker';
+import { JSONLDocument, PolicyDocument, DocumentChunk } from '../types/index';
 
 /**
  * Load and process JSONL policy files into the database

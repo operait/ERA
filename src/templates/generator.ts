@@ -1,6 +1,6 @@
-import { supabase } from '../lib/supabase.js';
-import { SearchContext } from '../retrieval/search.js';
-import { Template } from '../types/index.js';
+import { supabase } from '../lib/supabase';
+import { SearchContext } from '../retrieval/search';
+import { Template } from '../types/index';
 
 export interface ResponseTemplate {
   id: string;

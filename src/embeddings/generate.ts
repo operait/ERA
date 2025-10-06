@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../lib/supabase';
 import dotenv from 'dotenv';
 
 dotenv.config();

@@ -1,8 +1,8 @@
 import { ActivityHandler, MessageFactory, TurnContext, ActivityTypes } from 'botbuilder';
 import restify, { Request, Response } from 'restify';
 import { BotFrameworkAdapter } from 'botbuilder';
-import { DocumentRetriever } from '../retrieval/search.js';
-import { ResponseGenerator } from '../templates/generator.js';
+import { DocumentRetriever } from '../retrieval/search';
+import { ResponseGenerator } from '../templates/generator';
 import dotenv from 'dotenv';
 
 dotenv.config();
