@@ -265,6 +265,12 @@ function createBot(): ERABot {
 
 // Create bot adapter
 function createAdapter(): BotFrameworkAdapter {
+  // Debug: Log credential status (not values)
+  console.log('Bot credentials loaded:', {
+    appId: process.env.MICROSOFT_APP_ID ? `${process.env.MICROSOFT_APP_ID.substring(0, 8)}...` : 'MISSING',
+    appPassword: process.env.MICROSOFT_APP_PASSWORD ? 'SET' : 'MISSING'
+  });
+
   const adapter = new BotFrameworkAdapter({
     appId: process.env.MICROSOFT_APP_ID,
     appPassword: process.env.MICROSOFT_APP_PASSWORD
