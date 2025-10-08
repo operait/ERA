@@ -268,13 +268,15 @@ function createAdapter(): CloudAdapter {
   console.log('Bot credentials loaded:', {
     appId: process.env.MICROSOFT_APP_ID ? `${process.env.MICROSOFT_APP_ID.substring(0, 8)}...` : 'MISSING',
     appPassword: process.env.MICROSOFT_APP_PASSWORD ? 'SET' : 'MISSING',
-    appType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant'
+    appType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant',
+    tenantId: process.env.MICROSOFT_APP_TENANT_ID || 'not set'
   });
 
   const botAuth = new ConfigurationBotFrameworkAuthentication({
     MicrosoftAppId: process.env.MICROSOFT_APP_ID,
     MicrosoftAppPassword: process.env.MICROSOFT_APP_PASSWORD,
-    MicrosoftAppType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant'
+    MicrosoftAppType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant',
+    MicrosoftAppTenantId: process.env.MICROSOFT_APP_TENANT_ID
   });
 
   const adapter = new CloudAdapter(botAuth);
@@ -282,9 +284,15 @@ function createAdapter(): CloudAdapter {
   // Error handling
   adapter.onTurnError = async (context, error) => {
     console.error('Bot error:', error);
-    await context.sendActivity(MessageFactory.text(
-      'Sorry, an error occurred. Please try again.'
-    ));
+    console.error('Error details:', JSON.stringify(error, null, 2));
+
+    try {
+      await context.sendActivity(MessageFactory.text(
+        'Sorry, an error occurred. Please try again.'
+      ));
+    } catch (sendError) {
+      console.error('Failed to send error message:', sendError);
+    }
   };
 
   return adapter;
