@@ -39,11 +39,12 @@ export class ResponseGenerator {
   async generateResponse(
     query: string,
     searchContext: SearchContext,
-    scenario?: string
+    scenario?: string,
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<GeneratedResponse> {
     try {
       // Use Claude to generate a conversational response
-      const response = await this.generateClaudeResponse(query, searchContext);
+      const response = await this.generateClaudeResponse(query, searchContext, conversationHistory);
 
       return {
         response,
@@ -71,7 +72,8 @@ export class ResponseGenerator {
    */
   private async generateClaudeResponse(
     query: string,
-    searchContext: SearchContext
+    searchContext: SearchContext,
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<string> {
     // Prepare context from search results
     const contextText = searchContext.results
@@ -87,6 +89,7 @@ TONE AND STYLE:
 - Use conversational language (e.g., "Hi! Based on your question...")
 - Break down complex policies into clear steps
 - Be specific and actionable
+- Remember context from previous messages in the conversation
 
 RESPONSE FORMAT:
 1. Start with a friendly acknowledgment of their question
@@ -99,26 +102,34 @@ IMPORTANT:
 - Only provide information based on the policy documents provided
 - If the policy requires HR consultation, explicitly state that
 - For disciplinary actions, always emphasize documentation
-- Be empathetic to both manager and employee perspectives`;
+- Be empathetic to both manager and employee perspectives
+- If this is a follow-up question, reference the previous conversation naturally`;
 
-    const userPrompt = `Manager's question: "${query}"
+    // Build messages array with conversation history
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
-Here are the relevant policy documents:
+    // Add conversation history (excluding the current query which is already in history)
+    if (conversationHistory && conversationHistory.length > 1) {
+      // Get history excluding the last user message (which is the current query)
+      const previousMessages = conversationHistory.slice(0, -1);
+      messages.push(...previousMessages);
+    }
 
-${contextText}
+    // Add current query with policy context
+    const currentPrompt = conversationHistory && conversationHistory.length > 1
+      ? `Manager's follow-up: "${query}"\n\nHere are relevant policy documents for this question:\n\n${contextText}\n\nPlease provide a helpful response that builds on our previous conversation.`
+      : `Manager's question: "${query}"\n\nHere are the relevant policy documents:\n\n${contextText}\n\nPlease provide a helpful, conversational response that addresses their question using the policy information above.`;
 
-Please provide a helpful, conversational response that addresses their question using the policy information above.`;
+    messages.push({
+      role: 'user',
+      content: currentPrompt
+    });
 
     const message = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt
-        }
-      ]
+      messages
     });
 
     const responseText = message.content

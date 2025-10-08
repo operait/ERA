@@ -7,17 +7,32 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
+ * Conversation state to track message history
+ */
+interface ConversationState {
+  conversationId: string;
+  history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  lastActivity: Date;
+}
+
+/**
  * ERA - HR Assistant Bot for Microsoft Teams
  */
 class ERABot extends ActivityHandler {
   private retriever: DocumentRetriever;
   private responseGenerator: ResponseGenerator;
+  private conversationStates: Map<string, ConversationState> = new Map();
+  private readonly MAX_HISTORY_LENGTH = 10; // Keep last 10 messages
+  private readonly STATE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor() {
     super();
 
     this.retriever = new DocumentRetriever();
     this.responseGenerator = new ResponseGenerator();
+
+    // Clean up old conversation states periodically
+    setInterval(() => this.cleanupOldStates(), 5 * 60 * 1000); // Every 5 minutes
 
     // Handle when a user sends a message
     this.onMessage(async (context, next) => {
@@ -33,11 +48,60 @@ class ERABot extends ActivityHandler {
   }
 
   /**
+   * Get or create conversation state
+   */
+  private getConversationState(conversationId: string): ConversationState {
+    if (!this.conversationStates.has(conversationId)) {
+      this.conversationStates.set(conversationId, {
+        conversationId,
+        history: [],
+        lastActivity: new Date()
+      });
+    }
+    const state = this.conversationStates.get(conversationId)!;
+    state.lastActivity = new Date();
+    return state;
+  }
+
+  /**
+   * Add message to conversation history
+   */
+  private addToHistory(conversationId: string, role: 'user' | 'assistant', content: string): void {
+    const state = this.getConversationState(conversationId);
+    state.history.push({ role, content });
+
+    // Keep only recent history
+    if (state.history.length > this.MAX_HISTORY_LENGTH) {
+      state.history = state.history.slice(-this.MAX_HISTORY_LENGTH);
+    }
+  }
+
+  /**
+   * Clean up old conversation states
+   */
+  private cleanupOldStates(): void {
+    const now = Date.now();
+    const expiredConversations: string[] = [];
+
+    this.conversationStates.forEach((state, conversationId) => {
+      if (now - state.lastActivity.getTime() > this.STATE_TIMEOUT_MS) {
+        expiredConversations.push(conversationId);
+      }
+    });
+
+    expiredConversations.forEach(id => {
+      this.conversationStates.delete(id);
+      console.log(`Cleaned up expired conversation: ${id}`);
+    });
+  }
+
+  /**
    * Handle incoming messages
    */
   private async handleMessage(context: TurnContext): Promise<void> {
     try {
       const userQuery = context.activity.text?.trim();
+      const conversationId = context.activity.conversation.id;
 
       if (!userQuery) {
         await context.sendActivity(MessageFactory.text(
@@ -82,21 +146,33 @@ class ERABot extends ActivityHandler {
   private async processHRQuery(context: TurnContext, query: string): Promise<void> {
     try {
       const startTime = Date.now();
+      const conversationId = context.activity.conversation.id;
+
+      // Get conversation history
+      const conversationState = this.getConversationState(conversationId);
+
+      // Add user message to history
+      this.addToHistory(conversationId, 'user', query);
 
       // Retrieve relevant context
       const searchContext = await this.retriever.getHRContext(query);
 
       if (searchContext.results.length === 0) {
-        await context.sendActivity(MessageFactory.text(
-          `I couldn't find specific policy information related to "${query}". Please try rephrasing your question or contact HR directly for assistance.`
-        ));
+        const noResultsMessage = `I couldn't find specific policy information related to "${query}". Please try rephrasing your question or contact HR directly for assistance.`;
+
+        await context.sendActivity(MessageFactory.text(noResultsMessage));
+
+        // Add assistant response to history
+        this.addToHistory(conversationId, 'assistant', noResultsMessage);
         return;
       }
 
-      // Generate response
+      // Generate response with conversation history
       const generatedResponse = await this.responseGenerator.generateResponse(
         query,
-        searchContext
+        searchContext,
+        undefined,
+        conversationState.history
       );
 
       const processingTime = Date.now() - startTime;
@@ -109,6 +185,9 @@ class ERABot extends ActivityHandler {
       );
 
       await context.sendActivity(formattedResponse);
+
+      // Add assistant response to history
+      this.addToHistory(conversationId, 'assistant', generatedResponse.response);
 
       // Log successful interaction
       console.log(`Query processed in ${processingTime}ms with ${searchContext.results.length} results`);
