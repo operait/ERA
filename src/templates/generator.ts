@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { SearchContext } from '../retrieval/search';
 import { Template } from '../types/index';
+import Anthropic from '@anthropic-ai/sdk';
 
 export interface ResponseTemplate {
   id: string;
@@ -23,13 +24,17 @@ export interface GeneratedResponse {
  */
 export class ResponseGenerator {
   private templateCache: Map<string, ResponseTemplate[]> = new Map();
+  private anthropic: Anthropic;
 
   constructor() {
     this.loadTemplates();
+    this.anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
+    });
   }
 
   /**
-   * Generate a response using templates and search context
+   * Generate a response using Claude AI and search context
    */
   async generateResponse(
     query: string,
@@ -37,38 +42,91 @@ export class ResponseGenerator {
     scenario?: string
   ): Promise<GeneratedResponse> {
     try {
-      // Find matching template
-      const template = await this.findBestTemplate(query, scenario, searchContext.categories);
-
-      // Extract key information from search results
-      const contextSummary = this.summarizeContext(searchContext);
-
-      // Generate placeholders
-      const placeholders = this.extractPlaceholders(query, contextSummary);
-
-      // Fill template or generate basic response
-      let response: string;
-      let confidence_score: number;
-
-      if (template) {
-        response = this.fillTemplate(template, placeholders, contextSummary);
-        confidence_score = 0.9; // High confidence with template
-      } else {
-        response = this.generateBasicResponse(query, contextSummary);
-        confidence_score = 0.6; // Lower confidence without template
-      }
+      // Use Claude to generate a conversational response
+      const response = await this.generateClaudeResponse(query, searchContext);
 
       return {
         response,
-        template_used: template || undefined,
+        template_used: undefined,
         context_chunks: searchContext.results.length,
-        placeholders,
-        confidence_score
+        placeholders: {},
+        confidence_score: searchContext.avgSimilarity
       };
     } catch (error) {
       console.error('Error generating response:', error);
-      throw error;
+      // Fallback to basic response if Claude fails
+      const contextSummary = this.summarizeContext(searchContext);
+      return {
+        response: this.generateBasicResponse(query, contextSummary),
+        template_used: undefined,
+        context_chunks: searchContext.results.length,
+        placeholders: {},
+        confidence_score: 0.5
+      };
     }
+  }
+
+  /**
+   * Generate conversational response using Claude
+   */
+  private async generateClaudeResponse(
+    query: string,
+    searchContext: SearchContext
+  ): Promise<string> {
+    // Prepare context from search results
+    const contextText = searchContext.results
+      .map((result, index) => {
+        return `Source ${index + 1}: ${result.document_title}\n${result.chunk_text}\n`;
+      })
+      .join('\n---\n\n');
+
+    const systemPrompt = `You are ERA, an AI HR assistant for Fitness Connection managers. Your role is to help managers navigate HR policies and procedures with clear, conversational, and actionable guidance.
+
+TONE AND STYLE:
+- Be warm, professional, and supportive
+- Use conversational language (e.g., "Hi! Based on your question...")
+- Break down complex policies into clear steps
+- Be specific and actionable
+
+RESPONSE FORMAT:
+1. Start with a friendly acknowledgment of their question
+2. Provide clear, step-by-step guidance based on the policy documents
+3. Use bullet points or numbered lists for clarity
+4. Include relevant policy excerpts when helpful
+5. End with next steps or offer to help further
+
+IMPORTANT:
+- Only provide information based on the policy documents provided
+- If the policy requires HR consultation, explicitly state that
+- For disciplinary actions, always emphasize documentation
+- Be empathetic to both manager and employee perspectives`;
+
+    const userPrompt = `Manager's question: "${query}"
+
+Here are the relevant policy documents:
+
+${contextText}
+
+Please provide a helpful, conversational response that addresses their question using the policy information above.`;
+
+    const message = await this.anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ]
+    });
+
+    const responseText = message.content
+      .filter((block) => block.type === 'text')
+      .map((block) => (block as { text: string }).text)
+      .join('\n');
+
+    return responseText;
   }
 
   /**
