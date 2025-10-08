@@ -264,19 +264,31 @@ function createBot(): ERABot {
 
 // Create bot adapter
 function createAdapter(): CloudAdapter {
+  const appId = process.env.MICROSOFT_APP_ID;
+  const appPassword = process.env.MICROSOFT_APP_PASSWORD;
+  const appType = process.env.MICROSOFT_APP_TYPE || 'SingleTenant';
+  const tenantId = process.env.MICROSOFT_APP_TENANT_ID;
+
   // Debug: Log credential status (not values)
   console.log('Bot credentials loaded:', {
-    appId: process.env.MICROSOFT_APP_ID ? `${process.env.MICROSOFT_APP_ID.substring(0, 8)}...` : 'MISSING',
-    appPassword: process.env.MICROSOFT_APP_PASSWORD ? 'SET' : 'MISSING',
-    appType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant',
-    tenantId: process.env.MICROSOFT_APP_TENANT_ID || 'not set'
+    appId: appId ? `${appId.substring(0, 8)}...` : 'MISSING',
+    appIdLength: appId?.length || 0,
+    appPassword: appPassword ? 'SET' : 'MISSING',
+    appPasswordLength: appPassword?.length || 0,
+    appType,
+    tenantId: tenantId ? `${tenantId.substring(0, 8)}...` : 'not set'
   });
 
+  // Validate credentials
+  if (!appId || !appPassword) {
+    throw new Error('MICROSOFT_APP_ID and MICROSOFT_APP_PASSWORD must be set');
+  }
+
   const botAuth = new ConfigurationBotFrameworkAuthentication({
-    MicrosoftAppId: process.env.MICROSOFT_APP_ID,
-    MicrosoftAppPassword: process.env.MICROSOFT_APP_PASSWORD,
-    MicrosoftAppType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant',
-    MicrosoftAppTenantId: process.env.MICROSOFT_APP_TENANT_ID
+    MicrosoftAppId: appId,
+    MicrosoftAppPassword: appPassword,
+    MicrosoftAppType: appType,
+    MicrosoftAppTenantId: tenantId
   });
 
   const adapter = new CloudAdapter(botAuth);
