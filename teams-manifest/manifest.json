@@ -1,0 +1,62 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.1",
+  "id": "70f080d7-b701-4b25-a40b-7f4470b58f1e",
+  "packageName": "com.fitnessconnection.era",
+  "developer": {
+    "name": "Operait",
+    "websiteUrl": "https://era-n26e.onrender.com",
+    "privacyUrl": "https://era-n26e.onrender.com/privacy",
+    "termsOfUseUrl": "https://era-n26e.onrender.com/terms"
+  },
+  "name": {
+    "short": "ERA HR Assistant",
+    "full": "ERA - Fitness Connection HR Assistant Bot"
+  },
+  "description": {
+    "short": "HR policy assistant for Fitness Connection managers",
+    "full": "ERA helps Fitness Connection managers quickly access HR policies, procedures, and email templates for common workplace scenarios using AI-powered search."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#FFFFFF",
+  "bots": [
+    {
+      "botId": "70f080d7-b701-4b25-a40b-7f4470b58f1e",
+      "scopes": [
+        "personal",
+        "team"
+      ],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "personal",
+            "team"
+          ],
+          "commands": [
+            {
+              "title": "Help",
+              "description": "Get help using ERA"
+            },
+            {
+              "title": "Ask a question",
+              "description": "Ask about HR policies and procedures"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "era-n26e.onrender.com"
+  ]
+}

@@ -159,7 +159,7 @@ export class DocumentRetriever {
   async getHRContext(scenario: string, category?: string): Promise<SearchContext> {
     const searchOptions: SearchOptions = {
       maxResults: 5,
-      similarityThreshold: 0.70, // Slightly lower threshold for HR scenarios
+      similarityThreshold: 0.50, // Balanced threshold for real-world queries
       categoryFilter: category,
       includeMetadata: true
     };
