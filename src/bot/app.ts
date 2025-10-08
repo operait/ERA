@@ -1,6 +1,5 @@
-import { ActivityHandler, MessageFactory, TurnContext, ActivityTypes } from 'botbuilder';
+import { ActivityHandler, MessageFactory, TurnContext, ActivityTypes, CloudAdapter, ConfigurationBotFrameworkAuthentication } from 'botbuilder';
 import restify, { Request, Response, Next } from 'restify';
-import { BotFrameworkAdapter } from 'botbuilder';
 import { DocumentRetriever } from '../retrieval/search';
 import { ResponseGenerator } from '../templates/generator';
 import dotenv from 'dotenv';
@@ -264,17 +263,21 @@ function createBot(): ERABot {
 }
 
 // Create bot adapter
-function createAdapter(): BotFrameworkAdapter {
+function createAdapter(): CloudAdapter {
   // Debug: Log credential status (not values)
   console.log('Bot credentials loaded:', {
     appId: process.env.MICROSOFT_APP_ID ? `${process.env.MICROSOFT_APP_ID.substring(0, 8)}...` : 'MISSING',
-    appPassword: process.env.MICROSOFT_APP_PASSWORD ? 'SET' : 'MISSING'
+    appPassword: process.env.MICROSOFT_APP_PASSWORD ? 'SET' : 'MISSING',
+    appType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant'
   });
 
-  const adapter = new BotFrameworkAdapter({
-    appId: process.env.MICROSOFT_APP_ID,
-    appPassword: process.env.MICROSOFT_APP_PASSWORD
+  const botAuth = new ConfigurationBotFrameworkAuthentication({
+    MicrosoftAppId: process.env.MICROSOFT_APP_ID,
+    MicrosoftAppPassword: process.env.MICROSOFT_APP_PASSWORD,
+    MicrosoftAppType: process.env.MICROSOFT_APP_TYPE || 'MultiTenant'
   });
+
+  const adapter = new CloudAdapter(botAuth);
 
   // Error handling
   adapter.onTurnError = async (context, error) => {
