@@ -169,10 +169,11 @@ class ERABot extends ActivityHandler {
       let searchContext;
 
       if (isShortFollowUp) {
-        // For short follow-ups, search using the original user query for better context
+        // For short follow-ups, search using the FIRST user query (original question) for better context
         const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
         if (previousUserMessages.length > 1) {
-          const originalQuery = previousUserMessages[previousUserMessages.length - 2].content;
+          // Use the FIRST user message (the original question), not the second-to-last
+          const originalQuery = previousUserMessages[0].content;
           console.log(`Short follow-up detected. Searching with original query: "${originalQuery}"`);
           searchContext = await this.retriever.getHRContext(originalQuery);
         } else {
