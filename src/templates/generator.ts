@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase';
 import { SearchContext } from '../retrieval/search';
 import { Template } from '../types/index';
 import Anthropic from '@anthropic-ai/sdk';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 export interface ResponseTemplate {
   id: string;
@@ -25,12 +27,71 @@ export interface GeneratedResponse {
 export class ResponseGenerator {
   private templateCache: Map<string, ResponseTemplate[]> = new Map();
   private anthropic: Anthropic;
+  private masterPrompt: string;
 
   constructor() {
     this.loadTemplates();
     this.anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
     });
+    this.masterPrompt = this.loadMasterPrompt();
+  }
+
+  /**
+   * Load master prompt from MASTER_PROMPT.md file
+   */
+  private loadMasterPrompt(): string {
+    try {
+      const promptPath = join(__dirname, '..', '..', 'MASTER_PROMPT.md');
+      const fileContent = readFileSync(promptPath, 'utf-8');
+
+      // Strip YAML frontmatter (lines between --- markers)
+      const lines = fileContent.split('\n');
+      let startIndex = 0;
+      let inFrontmatter = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === '---') {
+          if (!inFrontmatter) {
+            inFrontmatter = true;
+            startIndex = i + 1;
+          } else {
+            // Found closing ---, content starts after this
+            startIndex = i + 1;
+            break;
+          }
+        }
+      }
+
+      const promptContent = lines.slice(startIndex).join('\n').trim();
+      console.log('✅ Loaded master prompt from MASTER_PROMPT.md');
+      return promptContent;
+    } catch (error) {
+      console.warn('⚠️ Failed to load MASTER_PROMPT.md, using fallback prompt:', error);
+      // Fallback to basic prompt if file can't be read
+      return `You are ERA, an AI HR assistant for Fitness Connection managers. Your role is to help managers navigate HR policies and procedures with clear, conversational, and actionable guidance.
+
+TONE AND STYLE:
+- Be warm, professional, and supportive
+- Use conversational language (e.g., "Hi! Based on your question...")
+- Break down complex policies into clear steps
+- Be specific and actionable
+- Remember context from previous messages in the conversation
+
+RESPONSE FORMAT:
+1. Start with a friendly acknowledgment of their question
+2. Provide clear, step-by-step guidance based on the policy documents
+3. Use bullet points or numbered lists for clarity
+4. Include relevant policy excerpts when helpful
+5. End with next steps or offer to help further
+
+IMPORTANT:
+- Only provide information based on the policy documents provided
+- If the policy requires HR consultation, explicitly state that
+- For disciplinary actions, always emphasize documentation
+- Be empathetic to both manager and employee perspectives
+- If this is a follow-up question, reference the previous conversation naturally`;
+    }
   }
 
   /**
@@ -82,28 +143,8 @@ export class ResponseGenerator {
       })
       .join('\n---\n\n');
 
-    const systemPrompt = `You are ERA, an AI HR assistant for Fitness Connection managers. Your role is to help managers navigate HR policies and procedures with clear, conversational, and actionable guidance.
-
-TONE AND STYLE:
-- Be warm, professional, and supportive
-- Use conversational language (e.g., "Hi! Based on your question...")
-- Break down complex policies into clear steps
-- Be specific and actionable
-- Remember context from previous messages in the conversation
-
-RESPONSE FORMAT:
-1. Start with a friendly acknowledgment of their question
-2. Provide clear, step-by-step guidance based on the policy documents
-3. Use bullet points or numbered lists for clarity
-4. Include relevant policy excerpts when helpful
-5. End with next steps or offer to help further
-
-IMPORTANT:
-- Only provide information based on the policy documents provided
-- If the policy requires HR consultation, explicitly state that
-- For disciplinary actions, always emphasize documentation
-- Be empathetic to both manager and employee perspectives
-- If this is a follow-up question, reference the previous conversation naturally`;
+    // Use the loaded master prompt from MASTER_PROMPT.md
+    const systemPrompt = this.masterPrompt;
 
     // Build messages array with conversation history
     const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
