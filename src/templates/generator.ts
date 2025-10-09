@@ -101,11 +101,12 @@ IMPORTANT:
     query: string,
     searchContext: SearchContext,
     scenario?: string,
-    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>,
+    managerFirstName?: string
   ): Promise<GeneratedResponse> {
     try {
       // Use Claude to generate a conversational response
-      const response = await this.generateClaudeResponse(query, searchContext, conversationHistory);
+      const response = await this.generateClaudeResponse(query, searchContext, conversationHistory, managerFirstName);
 
       return {
         response,
@@ -134,7 +135,8 @@ IMPORTANT:
   private async generateClaudeResponse(
     query: string,
     searchContext: SearchContext,
-    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>,
+    managerFirstName?: string
   ): Promise<string> {
     // Prepare context from search results
     const contextText = searchContext.results
@@ -156,21 +158,24 @@ IMPORTANT:
       messages.push(...previousMessages);
     }
 
+    // Build manager name context
+    const nameContext = managerFirstName ? `The manager's name is ${managerFirstName}. Address them by their first name naturally in your response (e.g., "Thanks for reaching out, ${managerFirstName}").` : '';
+
     // Add current query with policy context
     const currentPrompt = conversationHistory && conversationHistory.length > 1
-      ? `The manager has responded with: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Review the conversation history above. The manager is likely answering your clarifying questions or providing additional context. Now that you have their response:
+      ? `${nameContext}\n\nThe manager has responded with: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Review the conversation history above. The manager is likely answering your clarifying questions or providing additional context. Now that you have their response:
 
 1. If they've answered your clarifying questions, acknowledge their response and NOW provide the detailed step-by-step guidance they need
 2. If they're adding new information but context is still unclear, ask ONE more specific question
-3. Use the peer-like coaching tone from the master prompt
+3. Use the peer-like coaching tone from the master prompt${managerFirstName ? ' and use their first name naturally' : ''}
 4. Provide actionable next steps based on the policy documents above
 
 This is a continuation of your conversation - build on what you've already discussed.`
-      : `Manager's question: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Follow the master prompt's "Context & Clarification" section carefully:
+      : `${nameContext}\n\nManager's question: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Follow the master prompt's "Context & Clarification" section carefully:
 
 1. First assess if the situation is ambiguous or if key details are missing
 2. If context is unclear (e.g., "employee doesn't show up" - were they unreachable? consecutive shifts? any contact attempts?), you MUST:
-   - Acknowledge their situation briefly
+   - Acknowledge their situation briefly${managerFirstName ? ' (address them by name: ' + managerFirstName + ')' : ''}
    - Ask 1-2 specific clarifying questions
    - STOP there - do not provide detailed steps yet
    - Wait for their response before giving full guidance

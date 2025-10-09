@@ -104,14 +104,18 @@ class ERABot extends ActivityHandler {
       const userQuery = context.activity.text?.trim();
       const conversationId = context.activity.conversation.id;
 
+      // Extract user's first name from Teams
+      const userName = context.activity.from?.name || 'there';
+      const firstName = userName.split(' ')[0];
+
       if (!userQuery) {
         await context.sendActivity(MessageFactory.text(
-          'Hi! I\'m ERA, your HR assistant. Please ask me about Fitness Connection policies and procedures.'
+          `Hi${firstName !== 'there' ? ' ' + firstName : ''}! I'm ERA, your HR assistant. Please ask me about Fitness Connection policies and procedures.`
         ));
         return;
       }
 
-      console.log(`Processing query: ${userQuery}`);
+      console.log(`Processing query from ${firstName}: ${userQuery}`);
 
       // Show typing indicator
       await context.sendActivities([
@@ -131,7 +135,7 @@ class ERABot extends ActivityHandler {
       }
 
       if (userQuery.toLowerCase().startsWith('!reset') || userQuery.toLowerCase().startsWith('!restart')) {
-        await this.handleReset(context, conversationId);
+        await this.handleReset(context, conversationId, firstName);
         return;
       }
 
@@ -142,12 +146,12 @@ class ERABot extends ActivityHandler {
 
       // Detect conversational endings (thank you, goodbye, etc.)
       if (this.isConversationalEnding(userQuery)) {
-        await this.handleConversationalEnding(context, conversationId, userQuery);
+        await this.handleConversationalEnding(context, conversationId, userQuery, firstName);
         return;
       }
 
       // Process HR query
-      await this.processHRQuery(context, userQuery);
+      await this.processHRQuery(context, userQuery, firstName);
 
     } catch (error) {
       console.error('Error handling message:', error);
@@ -160,7 +164,7 @@ class ERABot extends ActivityHandler {
   /**
    * Process HR-related queries using RAG
    */
-  private async processHRQuery(context: TurnContext, query: string): Promise<void> {
+  private async processHRQuery(context: TurnContext, query: string, firstName: string): Promise<void> {
     try {
       const startTime = Date.now();
       const conversationId = context.activity.conversation.id;
@@ -204,7 +208,8 @@ class ERABot extends ActivityHandler {
         query,
         searchContext,
         undefined,
-        conversationState.history
+        conversationState.history,
+        firstName
       );
 
       const processingTime = Date.now() - startTime;
@@ -266,12 +271,12 @@ class ERABot extends ActivityHandler {
   /**
    * Handle conversational endings
    */
-  private async handleConversationalEnding(context: TurnContext, conversationId: string, query: string): Promise<void> {
+  private async handleConversationalEnding(context: TurnContext, conversationId: string, query: string, firstName: string): Promise<void> {
     const responses = [
-      "You're welcome! Feel free to reach out anytime you need HR guidance. 👍",
-      "Happy to help! Let me know if anything else comes up. 😊",
-      "Glad I could assist! I'm here whenever you need me. ✨",
-      "You got this! Reach out if you need anything else. 💪"
+      `You're welcome${firstName !== 'there' ? ', ' + firstName : ''}! Feel free to reach out anytime you need HR guidance. 👍`,
+      `Happy to help${firstName !== 'there' ? ', ' + firstName : ''}! Let me know if anything else comes up. 😊`,
+      `Glad I could assist! I'm here whenever you need me. ✨`,
+      `You got this${firstName !== 'there' ? ', ' + firstName : ''}! Reach out if you need anything else. 💪`
     ];
 
     const response = responses[Math.floor(Math.random() * responses.length)];
@@ -286,12 +291,12 @@ class ERABot extends ActivityHandler {
   /**
    * Handle !reset or !restart command
    */
-  private async handleReset(context: TurnContext, conversationId: string): Promise<void> {
+  private async handleReset(context: TurnContext, conversationId: string, firstName: string): Promise<void> {
     // Clear conversation history
     this.conversationStates.delete(conversationId);
 
     await context.sendActivity(MessageFactory.text(
-      '🔄 **Conversation Reset**\n\nYour conversation history has been cleared. Feel free to start with a new question!'
+      `🔄 **Conversation Reset**\n\nYour conversation history has been cleared${firstName !== 'there' ? ', ' + firstName : ''}. Feel free to start with a new question!`
     ));
   }
 
