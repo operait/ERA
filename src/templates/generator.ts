@@ -159,7 +159,18 @@ IMPORTANT:
     // Add current query with policy context
     const currentPrompt = conversationHistory && conversationHistory.length > 1
       ? `Manager's follow-up: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nRemember to follow the master prompt guidelines: clarify context if needed, use peer-like coaching tone, and ask a follow-up question if details are unclear.`
-      : `Manager's question: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nFollow the master prompt guidelines: First assess if you need to clarify context before giving detailed steps. If the situation is ambiguous (e.g., "employee called out" - did they notify in advance or just not show?), pause and ask a clarifying question before providing full guidance. Use the peer-like coaching tone and response structure outlined in your system prompt.`;
+      : `Manager's question: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Follow the master prompt's "Context & Clarification" section carefully:
+
+1. First assess if the situation is ambiguous or if key details are missing
+2. If context is unclear (e.g., "employee doesn't show up" - were they unreachable? consecutive shifts? any contact attempts?), you MUST:
+   - Acknowledge their situation briefly
+   - Ask 1-2 specific clarifying questions
+   - STOP there - do not provide detailed steps yet
+   - Wait for their response before giving full guidance
+
+3. ONLY provide complete detailed steps if the context is already clear and specific
+
+Remember: Your role is to think WITH managers, not FOR them. Clarify first, then guide.`;
 
     messages.push({
       role: 'user',
