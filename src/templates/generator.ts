@@ -158,7 +158,14 @@ IMPORTANT:
 
     // Add current query with policy context
     const currentPrompt = conversationHistory && conversationHistory.length > 1
-      ? `Manager's follow-up: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nRemember to follow the master prompt guidelines: clarify context if needed, use peer-like coaching tone, and ask a follow-up question if details are unclear.`
+      ? `The manager has responded with: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Review the conversation history above. The manager is likely answering your clarifying questions or providing additional context. Now that you have their response:
+
+1. If they've answered your clarifying questions, acknowledge their response and NOW provide the detailed step-by-step guidance they need
+2. If they're adding new information but context is still unclear, ask ONE more specific question
+3. Use the peer-like coaching tone from the master prompt
+4. Provide actionable next steps based on the policy documents above
+
+This is a continuation of your conversation - build on what you've already discussed.`
       : `Manager's question: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Follow the master prompt's "Context & Clarification" section carefully:
 
 1. First assess if the situation is ambiguous or if key details are missing
