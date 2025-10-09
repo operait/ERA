@@ -157,17 +157,39 @@ class ERABot extends ActivityHandler {
       // Check if this is a follow-up in an existing conversation
       const isFollowUp = conversationState.history.length > 1;
 
-      // Retrieve relevant context
-      let searchContext = await this.retriever.getHRContext(query);
+      // Detect if this is a short follow-up response (likely answering a clarifying question)
+      const isShortFollowUp = isFollowUp && query.length < 100 && (
+        query.toLowerCase().startsWith('yes') ||
+        query.toLowerCase().startsWith('no') ||
+        query.toLowerCase().startsWith('they') ||
+        /^(not yet|already|just|i |we |haven't|have )/i.test(query)
+      );
 
-      // If no results found but this is a follow-up, try to use context from conversation
-      if (searchContext.results.length === 0 && isFollowUp) {
-        // For follow-ups with no search results, try searching with the previous user query
+      // Retrieve relevant context
+      let searchContext;
+
+      if (isShortFollowUp) {
+        // For short follow-ups, search using the original user query for better context
         const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
         if (previousUserMessages.length > 1) {
-          const previousQuery = previousUserMessages[previousUserMessages.length - 2].content;
-          console.log(`Follow-up detected. Searching with previous context: "${previousQuery}"`);
-          searchContext = await this.retriever.getHRContext(previousQuery);
+          const originalQuery = previousUserMessages[previousUserMessages.length - 2].content;
+          console.log(`Short follow-up detected. Searching with original query: "${originalQuery}"`);
+          searchContext = await this.retriever.getHRContext(originalQuery);
+        } else {
+          searchContext = await this.retriever.getHRContext(query);
+        }
+      } else {
+        // For new questions or detailed follow-ups, search normally
+        searchContext = await this.retriever.getHRContext(query);
+
+        // If no results found but this is a follow-up, try to use context from conversation
+        if (searchContext.results.length === 0 && isFollowUp) {
+          const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
+          if (previousUserMessages.length > 1) {
+            const previousQuery = previousUserMessages[previousUserMessages.length - 2].content;
+            console.log(`No results found. Searching with previous context: "${previousQuery}"`);
+            searchContext = await this.retriever.getHRContext(previousQuery);
+          }
         }
       }
 
