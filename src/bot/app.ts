@@ -13,6 +13,7 @@ interface ConversationState {
   conversationId: string;
   history: Array<{ role: 'user' | 'assistant'; content: string }>;
   lastActivity: Date;
+  lastSearchContext?: any; // Store last search results for !sources command
 }
 
 /**
@@ -129,6 +130,22 @@ class ERABot extends ActivityHandler {
         return;
       }
 
+      if (userQuery.toLowerCase().startsWith('!reset') || userQuery.toLowerCase().startsWith('!restart')) {
+        await this.handleReset(context, conversationId);
+        return;
+      }
+
+      if (userQuery.toLowerCase().startsWith('!sources')) {
+        await this.handleSourcesCommand(context, conversationId);
+        return;
+      }
+
+      // Detect conversational endings (thank you, goodbye, etc.)
+      if (this.isConversationalEnding(userQuery)) {
+        await this.handleConversationalEnding(context, conversationId, userQuery);
+        return;
+      }
+
       // Process HR query
       await this.processHRQuery(context, userQuery);
 
@@ -204,6 +221,9 @@ class ERABot extends ActivityHandler {
       // Add assistant response to history
       this.addToHistory(conversationId, 'assistant', generatedResponse.response);
 
+      // Store search context for !sources command
+      conversationState.lastSearchContext = searchContext;
+
       // Log successful interaction
       console.log(`Query processed in ${processingTime}ms with ${searchContext.results.length} results`);
 
@@ -216,6 +236,95 @@ class ERABot extends ActivityHandler {
   }
 
   /**
+   * Check if message is a conversational ending
+   */
+  private isConversationalEnding(query: string): boolean {
+    const lowerQuery = query.toLowerCase().trim();
+    const endings = [
+      'thank',
+      'thanks',
+      'got it',
+      'perfect',
+      'sounds good',
+      'looks good',
+      'appreciate',
+      'that helps',
+      'that\'s helpful',
+      'ok',
+      'okay',
+      'great',
+      'awesome',
+      'bye',
+      'goodbye',
+      'see you',
+      'talk to you later'
+    ];
+
+    return endings.some(ending => lowerQuery.includes(ending)) && query.length < 50;
+  }
+
+  /**
+   * Handle conversational endings
+   */
+  private async handleConversationalEnding(context: TurnContext, conversationId: string, query: string): Promise<void> {
+    const responses = [
+      "You're welcome! Feel free to reach out anytime you need HR guidance. 👍",
+      "Happy to help! Let me know if anything else comes up. 😊",
+      "Glad I could assist! I'm here whenever you need me. ✨",
+      "You got this! Reach out if you need anything else. 💪"
+    ];
+
+    const response = responses[Math.floor(Math.random() * responses.length)];
+
+    // Add to history
+    this.addToHistory(conversationId, 'user', query);
+    this.addToHistory(conversationId, 'assistant', response);
+
+    await context.sendActivity(MessageFactory.text(response));
+  }
+
+  /**
+   * Handle !reset or !restart command
+   */
+  private async handleReset(context: TurnContext, conversationId: string): Promise<void> {
+    // Clear conversation history
+    this.conversationStates.delete(conversationId);
+
+    await context.sendActivity(MessageFactory.text(
+      '🔄 **Conversation Reset**\n\nYour conversation history has been cleared. Feel free to start with a new question!'
+    ));
+  }
+
+  /**
+   * Handle !sources command
+   */
+  private async handleSourcesCommand(context: TurnContext, conversationId: string): Promise<void> {
+    const state = this.conversationStates.get(conversationId);
+
+    if (!state || !state.lastSearchContext || state.lastSearchContext.results.length === 0) {
+      await context.sendActivity(MessageFactory.text(
+        '📚 No sources available. Ask me an HR policy question first, and then use `!sources` to see what documents I referenced.'
+      ));
+      return;
+    }
+
+    const searchContext = state.lastSearchContext;
+    let sourcesText = `📚 **Sources from last response:** ${searchContext.results.length} policy document(s)\n\n`;
+
+    searchContext.results.forEach((result: any, index: number) => {
+      sourcesText += `${index + 1}. **${result.document_title}**\n`;
+      sourcesText += `   Similarity: ${(result.similarity * 100).toFixed(1)}%\n`;
+      if (result.chunk_text) {
+        const preview = result.chunk_text.substring(0, 150);
+        sourcesText += `   Preview: ${preview}${result.chunk_text.length > 150 ? '...' : ''}\n`;
+      }
+      sourcesText += '\n';
+    });
+
+    await context.sendActivity(MessageFactory.text(sourcesText));
+  }
+
+  /**
    * Format response for Teams with rich cards
    */
   private formatResponseForTeams(
@@ -223,29 +332,13 @@ class ERABot extends ActivityHandler {
     searchContext: any,
     processingTime: number
   ): any {
-    // Simple text response to avoid adaptive card type issues
-    let formattedText = `🤖 **ERA - HR Assistant**\n\n${response.response}\n\n`;
+    // Simple text response without sources section
+    let formattedText = `${response.response}`;
 
-    // Add confidence information
-    if (response.confidence_score > 0.8) {
-      formattedText += '✅ High confidence response\n';
-    } else if (response.confidence_score > 0.6) {
-      formattedText += '⚠️ Medium confidence - please verify with HR\n';
+    // Add confidence information only if medium/low confidence
+    if (response.confidence_score <= 0.6 && response.confidence_score > 0) {
+      formattedText += '\n\n⚠️ Medium confidence - please verify with HR';
     }
-
-    // Add source information
-    if (searchContext.results.length > 0) {
-      formattedText += `\n📚 **Sources:** ${searchContext.results.length} policy document(s)\n`;
-
-      const sourceList = searchContext.results.slice(0, 3).map((result: any, index: number) =>
-        `${index + 1}. ${result.document_title}`
-      ).join('\n');
-
-      formattedText += sourceList + '\n';
-    }
-
-    // Add footer
-    formattedText += `\n⏱️ Processed in ${processingTime}ms | 💡 /help for commands`;
 
     return MessageFactory.text(formattedText);
   }
@@ -291,6 +384,8 @@ Ready to help! 🚀`;
 **Available Commands:**
 • **/help** - Show this help message
 • **/stats** - Show system statistics
+• **!sources** - Show source documents from your last question
+• **!reset** or **!restart** - Clear conversation history and start fresh
 • **Just ask!** - Ask any HR policy question
 
 **Tips for better results:**
