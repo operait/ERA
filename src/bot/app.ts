@@ -110,10 +110,33 @@ class ERABot extends ActivityHandler {
       // Extract user's first name and email from Teams
       const userName = context.activity.from?.name || 'there';
       const firstName = userName.split(' ')[0];
-      const managerEmail = context.activity.from?.aadObjectId
-        ? `${context.activity.from.aadObjectId}@fitnessconnection.com`
-        : context.activity.from?.id || 'unknown@fitnessconnection.com';
+
+      // Try to get email from various sources
+      // @ts-ignore - additional properties might not be in types but exist in Teams
+      const userPrincipalName = (context.activity.from as any)?.properties?.email ||
+                                (context.activity.from as any)?.email ||
+                                (context.activity.from as any)?.userPrincipalName;
+
+      // For Teams, the 'id' field often contains the email in format: "29:xxx" or the actual email
+      // The aadObjectId is the Azure AD Object ID (GUID)
+      let managerEmail = userPrincipalName;
+
+      // If we don't have email yet, try to extract from the 'id' field
+      if (!managerEmail) {
+        const fromId = context.activity.from?.id || '';
+        // Check if id looks like an email (contains @)
+        if (fromId.includes('@')) {
+          managerEmail = fromId;
+        } else {
+          // Fallback: use a placeholder that will trigger an error message
+          console.warn(`Unable to determine email for user. from.id: ${fromId}, from.name: ${userName}, aadObjectId: ${context.activity.from?.aadObjectId}`);
+          managerEmail = 'unknown@fitnessconnection.com';
+        }
+      }
+
       const managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
+
+      console.log(`User info - Name: ${userName}, Email: ${managerEmail}, ID: ${managerId}`);
 
       if (!userQuery) {
         await context.sendActivity(MessageFactory.text(
