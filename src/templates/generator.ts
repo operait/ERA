@@ -201,33 +201,34 @@ Relevant policy documents for the ORIGINAL question:\n\n${contextText}
    - Ask them to rephrase
 
 This is a continuation of your conversation - answer their ORIGINAL question now that you have the context.`
-      : `${nameContext}\n\n🚨🚨🚨 STOP - READ THIS BEFORE YOU DO ANYTHING ELSE 🚨🚨🚨
+      : `${nameContext}\n\n🚨 INTERNAL ASSESSMENT (DO NOT SHOW THIS SECTION TO THE MANAGER) 🚨
 
 Manager's question: "${query}"
 
-**BEFORE YOU LOOK AT POLICY DOCUMENTS - ANSWER THESE QUESTIONS:**
+**EVALUATE SILENTLY - DO NOT INCLUDE THIS CHECKLIST IN YOUR RESPONSE:**
 
 1. Does their question explicitly state whether they've already contacted the employee? (YES/NO)
 2. Do they mention what the employee said in response? (YES/NO)
 3. Do they provide timeline details (consecutive? specific dates?)? (YES/NO)
 
-⚠️ IF YOU ANSWERED "NO" TO ANY QUESTION ABOVE:
-   - You are FORBIDDEN from providing "Immediate Steps"
-   - You are FORBIDDEN from giving numbered action items
-   - You MUST ask a clarifying question and STOP
-   - Do NOT look at the policy documents yet
-   - Example response: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — three no-call/no-shows is definitely something we need to address right away. Just to confirm — have you already tried reaching out to [employee] at all, or is this the first time you're taking action?"
+**YOUR ACTUAL RESPONSE TO THE MANAGER:**
 
-✅ IF YOU ANSWERED "YES" TO ALL THREE QUESTIONS ABOVE:
-   - ONLY NOW can you proceed to review policy documents and provide detailed steps
+⚠️ IF YOU ANSWERED "NO" TO ANY QUESTION:
+   - Do NOT show the checklist or your reasoning
+   - Do NOT explain which questions you answered NO to
+   - Simply provide: Brief acknowledgment + ONE clarifying question + STOP
+   - Example: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — three no-call/no-shows is definitely something we need to address right away. Just to confirm — have you already tried reaching out to [employee] at all, or is this the first time you're taking action?"
 
----
-
-Relevant policy documents (ONLY USE IF CONTEXT IS COMPLETE):\n\n${contextText}
+✅ IF YOU ANSWERED "YES" TO ALL THREE:
+   - Provide complete step-by-step guidance using the policy documents below
 
 ---
 
-**YOUR RESPONSE RULES:**
+Relevant policy documents:\n\n${contextText}
+
+---
+
+**FORMATTING RULES:**
 
 ❌ IF MISSING ANY DETAIL ABOVE → YOU MUST:
 
