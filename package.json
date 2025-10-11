@@ -18,6 +18,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
+    "@azure/identity": "^4.13.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@microsoft/microsoft-graph-types": "^2.43.1",
     "@supabase/supabase-js": "^2.38.0",
     "@types/node": "^20.8.0",
     "@types/restify": "^8.5.10",

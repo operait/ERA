@@ -163,14 +163,25 @@ IMPORTANT:
 
     // Add current query with policy context
     const currentPrompt = conversationHistory && conversationHistory.length > 1
-      ? `${nameContext}\n\nThe manager has responded with: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Review the conversation history above. The manager is likely answering your clarifying questions or providing additional context. Now that you have their response:
+      ? `${nameContext}\n\n**FOLLOW-UP CONTEXT:**
+The manager just responded to your last message. Their response: "${query}"
 
-1. If they've answered your clarifying questions, acknowledge their response and NOW provide the detailed step-by-step guidance they need
-2. If they're adding new information but context is still unclear, ask ONE more specific question
-3. Use the peer-like coaching tone from the master prompt${managerFirstName ? ' and use their first name naturally' : ''}
-4. Provide actionable next steps based on the policy documents above
+Relevant policy documents:\n\n${contextText}
 
-This is a continuation of your conversation - build on what you've already discussed.`
+CRITICAL INSTRUCTIONS - READ CAREFULLY:
+
+1. **Review the conversation history above** - you previously asked the manager a clarifying question
+2. **The manager's response "${query}" is their ANSWER to your question** - not a new policy query
+3. **Now that they've answered your question, you MUST:**
+   - Acknowledge their answer conversationally (e.g., "Got it${managerFirstName ? ', ' + managerFirstName : ''} — since this is the first time...")
+   - NOW provide the complete step-by-step guidance they originally asked for
+   - Use the policy documents above to give them detailed, actionable next steps
+   - Include any email templates or procedures mentioned in the policy
+
+4. If their answer reveals they still need more context, ask ONE more specific question, then guide them
+5. Use the peer-like coaching tone from the master prompt
+
+This is a continuation of your conversation - the manager answered your question, so now guide them through the full process.`
       : `${nameContext}\n\nManager's question: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Follow the master prompt's "Context & Clarification" section carefully:
 
 1. First assess if the situation is ambiguous or if key details are missing

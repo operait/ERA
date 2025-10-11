@@ -5,13 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Era MVP - Fitness Connection HR Assistant Bot
 
 ## Project Overview
-ERA is a Microsoft Teams bot that helps Fitness Connection managers access HR policies and procedures using RAG (Retrieval-Augmented Generation). The bot provides instant policy guidance, escalation procedures, and email templates for common HR scenarios.
+ERA is a Microsoft Teams bot that helps Fitness Connection managers access HR policies and procedures using RAG (Retrieval-Augmented Generation). The bot provides instant policy guidance, escalation procedures, email templates, automated email sending via Outlook, and calendar booking for employee calls.
 
 ## Tech Stack
 - **Database**: Supabase (PostgreSQL + pgvector for semantic search)
 - **Embeddings**: OpenAI text-embedding-3-small (1536 dimensions)
 - **LLM**: Claude Sonnet 4.5 via Anthropic API
 - **Bot Framework**: Microsoft Bot Framework for Teams integration
+- **Integration**: Microsoft Graph API for Outlook email and calendar
 - **Runtime**: Node.js with TypeScript
 - **Hosting**: Render (or similar platform)
 
@@ -41,19 +42,27 @@ ERA is a Microsoft Teams bot that helps Fitness Connection managers access HR po
 3. **Retrieval** (`src/retrieval/`) - RAG-based semantic search system
 4. **Templates** (`src/templates/`) - Response generation with HR templates
 5. **Bot** (`src/bot/`) - Microsoft Teams bot implementation
+6. **Services** (`src/services/`) - Email composer and calendar booking services
+7. **Handlers** (`src/bot/handlers/`) - Email and calendar conversation flows
 
 ### Database Schema
 - `documents` - HR policy documents
 - `document_chunks` - Text chunks with embeddings for search
-- `templates` - Response templates for common scenarios
+- `templates` - Response templates for common scenarios (with email support)
 - `query_logs` - Usage analytics and query tracking
+- `email_logs` - Audit trail for sent emails
+- `calendar_bookings` - Tracking for scheduled employee calls
 
 ### Key Files
-- `src/bot/app.ts` - Main Teams bot application
+- `src/bot/app.ts` - Main Teams bot application with email/calendar integration
 - `src/retrieval/search.ts` - RAG search implementation
+- `src/services/email-composer.ts` - Email template filling and sending
+- `src/services/calendar.ts` - Calendar availability and booking
+- `src/lib/graph-client.ts` - Microsoft Graph API client
 - `src/lib/supabase.ts` - Database client and types
 - `src/lib/chunker.ts` - Text chunking utilities
-- `supabase/migrations/001_initial_schema.sql` - Database schema
+- `supabase/migrations/001_initial_schema.sql` - Initial database schema
+- `supabase/migrations/002_email_calendar_tables.sql` - Email/calendar tables
 - `supabase/functions/similarity_search.sql` - Vector search functions
 
 ## Data Format
@@ -65,13 +74,20 @@ Policy documents should be in JSONL format in the `./data` directory:
 ## Environment Setup
 1. Copy `.env.example` to `.env`
 2. Configure Supabase, OpenAI, and Microsoft Bot credentials
-3. Run database migrations
-4. Load sample data and generate embeddings
+3. Configure Microsoft Graph API credentials (see EMAIL_CALENDAR_SETUP.md)
+4. Run database migrations (including 002_email_calendar_tables.sql)
+5. Load sample data and generate embeddings
 
 ## Bot Usage Examples
-- "Employee missed 3 shifts without calling in, what do I do?"
-- "What's the process for issuing a written warning?"
-- "How do I handle tardiness issues?"
+- "Employee missed 3 shifts without calling in, what do I do?" → Policy guidance + auto email
+- "What's the process for issuing a written warning?" → Policy guidance + template
+- "How do I handle tardiness issues?" → Policy guidance + email/call workflow
+- "Need to discuss performance with an employee" → Policy guidance + calendar booking
+
+## New Features
+- **Email Sending**: ERA detects when to send emails and guides managers through template filling and sending
+- **Calendar Booking**: ERA checks manager availability and books employee calls automatically
+- See FEATURE_SUMMARY.md for detailed examples and workflows
 
 ## Success Criteria
 - Semantic search retrieves relevant policy sections (>0.75 similarity)

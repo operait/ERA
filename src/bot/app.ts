@@ -2,6 +2,9 @@ import { ActivityHandler, MessageFactory, TurnContext, ActivityTypes, CloudAdapt
 import restify, { Request, Response, Next } from 'restify';
 import { DocumentRetriever } from '../retrieval/search';
 import { ResponseGenerator } from '../templates/generator';
+import { emailHandler } from './handlers/email-handler';
+import { calendarHandler } from './handlers/calendar-handler';
+import { conversationStateManager } from '../services/conversation-state';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -104,9 +107,13 @@ class ERABot extends ActivityHandler {
       const userQuery = context.activity.text?.trim();
       const conversationId = context.activity.conversation.id;
 
-      // Extract user's first name from Teams
+      // Extract user's first name and email from Teams
       const userName = context.activity.from?.name || 'there';
       const firstName = userName.split(' ')[0];
+      const managerEmail = context.activity.from?.aadObjectId
+        ? `${context.activity.from.aadObjectId}@fitnessconnection.com`
+        : context.activity.from?.id || 'unknown@fitnessconnection.com';
+      const managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
 
       if (!userQuery) {
         await context.sendActivity(MessageFactory.text(
@@ -116,6 +123,33 @@ class ERABot extends ActivityHandler {
       }
 
       console.log(`Processing query from ${firstName}: ${userQuery}`);
+
+      // Check if we're in an active email or calendar conversation
+      if (conversationStateManager.isActive(conversationId)) {
+        const conversationType = conversationStateManager.getType(conversationId);
+
+        if (conversationType === 'email') {
+          const handled = await emailHandler.handleEmailStep(
+            context,
+            conversationId,
+            userQuery,
+            managerEmail,
+            managerId,
+            firstName
+          );
+          if (handled) return;
+        } else if (conversationType === 'calendar') {
+          const handled = await calendarHandler.handleCalendarStep(
+            context,
+            conversationId,
+            userQuery,
+            managerEmail,
+            managerId,
+            firstName
+          );
+          if (handled) return;
+        }
+      }
 
       // Show typing indicator
       await context.sendActivities([
@@ -150,8 +184,14 @@ class ERABot extends ActivityHandler {
         return;
       }
 
+      // Detect greetings (hi, hello, hey, etc.)
+      if (this.isGreeting(userQuery)) {
+        await this.handleGreeting(context, conversationId, firstName);
+        return;
+      }
+
       // Process HR query
-      await this.processHRQuery(context, userQuery, firstName);
+      await this.processHRQuery(context, userQuery, firstName, managerEmail, managerId);
 
     } catch (error) {
       console.error('Error handling message:', error);
@@ -164,7 +204,13 @@ class ERABot extends ActivityHandler {
   /**
    * Process HR-related queries using RAG
    */
-  private async processHRQuery(context: TurnContext, query: string, firstName: string): Promise<void> {
+  private async processHRQuery(
+    context: TurnContext,
+    query: string,
+    firstName: string,
+    managerEmail: string,
+    managerId: string
+  ): Promise<void> {
     try {
       const startTime = Date.now();
       const conversationId = context.activity.conversation.id;
@@ -229,6 +275,32 @@ class ERABot extends ActivityHandler {
       // Store search context for !sources command
       conversationState.lastSearchContext = searchContext;
 
+      // Check if response recommends sending email or scheduling call
+      const response = generatedResponse.response;
+
+      if (emailHandler.detectEmailRecommendation(response)) {
+        // Extract email template from response
+        const emailTemplate = emailHandler.extractEmailTemplate(response);
+        if (emailTemplate) {
+          await emailHandler.startEmailFlow(
+            context,
+            conversationId,
+            emailTemplate.subject,
+            emailTemplate.body
+          );
+        }
+      } else if (calendarHandler.detectCalendarRecommendation(response)) {
+        // Extract topic for calendar booking
+        const topic = calendarHandler.extractTopic(response, query);
+        await calendarHandler.startCalendarFlow(
+          context,
+          conversationId,
+          managerEmail,
+          topic,
+          firstName
+        );
+      }
+
       // Log successful interaction
       console.log(`Query processed in ${processingTime}ms with ${searchContext.results.length} results`);
 
@@ -238,6 +310,55 @@ class ERABot extends ActivityHandler {
         'I\'m having trouble accessing the policy database right now. Please try again in a moment.'
       ));
     }
+  }
+
+  /**
+   * Check if message is a greeting
+   */
+  private isGreeting(query: string): boolean {
+    const lowerQuery = query.toLowerCase().trim();
+    const greetings = [
+      'hi',
+      'hello',
+      'hey',
+      'hi there',
+      'hello there',
+      'hey there',
+      'good morning',
+      'good afternoon',
+      'good evening',
+      'howdy',
+      'greetings',
+      'what\'s up',
+      'whats up',
+      'sup'
+    ];
+
+    // Check if the message is JUST a greeting (with possible punctuation)
+    const queryNoPunctuation = lowerQuery.replace(/[!?.]/g, '').trim();
+    return greetings.includes(queryNoPunctuation) ||
+           (queryNoPunctuation.length < 20 && greetings.some(g => queryNoPunctuation.startsWith(g)));
+  }
+
+  /**
+   * Handle greeting messages
+   */
+  private async handleGreeting(context: TurnContext, conversationId: string, firstName: string): Promise<void> {
+    const greetingResponses = [
+      `Hi${firstName !== 'there' ? ' ' + firstName : ''}! 👋 I'm ERA, your HR assistant. How can I help you today?`,
+      `Hello${firstName !== 'there' ? ' ' + firstName : ''}! Ready to help with any HR questions you have.`,
+      `Hey${firstName !== 'there' ? ' ' + firstName : ''}! What HR situation can I help you with?`,
+      `Hi${firstName !== 'there' ? ' ' + firstName : ''}! I'm here to help with policies, procedures, and any HR guidance you need.`
+    ];
+
+    const response = greetingResponses[Math.floor(Math.random() * greetingResponses.length)];
+
+    // Add to history
+    const userQuery = context.activity.text?.trim() || '';
+    this.addToHistory(conversationId, 'user', userQuery);
+    this.addToHistory(conversationId, 'assistant', response);
+
+    await context.sendActivity(MessageFactory.text(response));
   }
 
   /**
@@ -294,6 +415,9 @@ class ERABot extends ActivityHandler {
   private async handleReset(context: TurnContext, conversationId: string, firstName: string): Promise<void> {
     // Clear conversation history
     this.conversationStates.delete(conversationId);
+
+    // Clear email/calendar state
+    conversationStateManager.clearState(conversationId);
 
     await context.sendActivity(MessageFactory.text(
       `🔄 **Conversation Reset**\n\nYour conversation history has been cleared${firstName !== 'there' ? ', ' + firstName : ''}. Feel free to start with a new question!`
