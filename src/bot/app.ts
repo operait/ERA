@@ -1,4 +1,4 @@
-import { ActivityHandler, MessageFactory, TurnContext, ActivityTypes, CloudAdapter, ConfigurationBotFrameworkAuthentication } from 'botbuilder';
+import { ActivityHandler, MessageFactory, TurnContext, ActivityTypes, CloudAdapter, ConfigurationBotFrameworkAuthentication, TeamsInfo } from 'botbuilder';
 import restify, { Request, Response, Next } from 'restify';
 import { DocumentRetriever } from '../retrieval/search';
 import { ResponseGenerator } from '../templates/generator';
@@ -111,30 +111,37 @@ class ERABot extends ActivityHandler {
       const userName = context.activity.from?.name || 'there';
       const firstName = userName.split(' ')[0];
 
-      // Try to get email from various sources
-      // @ts-ignore - additional properties might not be in types but exist in Teams
-      const userPrincipalName = (context.activity.from as any)?.properties?.email ||
-                                (context.activity.from as any)?.email ||
-                                (context.activity.from as any)?.userPrincipalName;
+      // Get manager email and ID - try to fetch from Teams profile
+      let managerEmail = 'unknown@fitnessconnection.com';
+      let managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
 
-      // For Teams, the 'id' field often contains the email in format: "29:xxx" or the actual email
-      // The aadObjectId is the Azure AD Object ID (GUID)
-      let managerEmail = userPrincipalName;
+      try {
+        // Try to get the member's profile from Teams using TeamsInfo
+        if (context.activity.from?.id) {
+          const member = await TeamsInfo.getMember(context, context.activity.from.id);
+          // TeamsChannelAccount has email and userPrincipalName properties
+          managerEmail = (member as any).email || (member as any).userPrincipalName || managerEmail;
+          console.log(`Fetched Teams member info - Email: ${managerEmail}`);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch Teams member info: ${error}. Falling back to context properties.`);
 
-      // If we don't have email yet, try to extract from the 'id' field
-      if (!managerEmail) {
-        const fromId = context.activity.from?.id || '';
-        // Check if id looks like an email (contains @)
-        if (fromId.includes('@')) {
-          managerEmail = fromId;
+        // Fallback: Try to get email from activity context
+        // @ts-ignore - additional properties might not be in types but exist in Teams
+        const userPrincipalName = (context.activity.from as any)?.properties?.email ||
+                                  (context.activity.from as any)?.email ||
+                                  (context.activity.from as any)?.userPrincipalName;
+
+        if (userPrincipalName) {
+          managerEmail = userPrincipalName;
         } else {
-          // Fallback: use a placeholder that will trigger an error message
-          console.warn(`Unable to determine email for user. from.id: ${fromId}, from.name: ${userName}, aadObjectId: ${context.activity.from?.aadObjectId}`);
-          managerEmail = 'unknown@fitnessconnection.com';
+          const fromId = context.activity.from?.id || '';
+          // Check if id looks like an email (contains @)
+          if (fromId.includes('@')) {
+            managerEmail = fromId;
+          }
         }
       }
-
-      const managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
 
       console.log(`User info - Name: ${userName}, Email: ${managerEmail}, ID: ${managerId}`);
 
