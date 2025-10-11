@@ -182,18 +182,39 @@ CRITICAL INSTRUCTIONS - READ CAREFULLY:
 5. Use the peer-like coaching tone from the master prompt
 
 This is a continuation of your conversation - the manager answered your question, so now guide them through the full process.`
-      : `${nameContext}\n\nManager's question: "${query}"\n\nRelevant policy documents:\n\n${contextText}\n\nIMPORTANT: Follow the master prompt's "Context & Clarification" section carefully:
+      : `${nameContext}\n\nManager's question: "${query}"
 
-1. First assess if the situation is ambiguous or if key details are missing
-2. If context is unclear (e.g., "employee doesn't show up" - were they unreachable? consecutive shifts? any contact attempts?), you MUST:
-   - Acknowledge their situation briefly${managerFirstName ? ' (address them by name: ' + managerFirstName + ')' : ''}
-   - Ask 1-2 specific clarifying questions
-   - STOP there - do not provide detailed steps yet
-   - Wait for their response before giving full guidance
+Relevant policy documents:\n\n${contextText}
 
-3. ONLY provide complete detailed steps if the context is already clear and specific
+⚠️ CRITICAL - READ BEFORE RESPONDING:
 
-Remember: Your role is to think WITH managers, not FOR them. Clarify first, then guide.`;
+**STEP 1: ASSESS CONTEXT COMPLETENESS**
+Does the manager's question include ALL of these key details?
+- Have they already attempted to contact the employee? (yes/no/unknown)
+- What was the employee's response or reason? (known/unknown)
+- Timeline clarity: consecutive shifts? spread out? how recent?
+- Any prior attendance issues mentioned?
+
+**STEP 2: DECIDE YOUR RESPONSE TYPE**
+
+IF ANY key detail is missing or unclear → YOU MUST ASK CLARIFYING QUESTIONS ONLY:
+   - Greet them briefly${managerFirstName ? ' (use their first name: ' + managerFirstName + ')' : ''}
+   - Acknowledge the situation (e.g., "Got it${managerFirstName ? ', ' + managerFirstName : ''} — three no-call-no-shows is definitely something we need to address right away.")
+   - Ask 1-2 specific clarifying questions about the MISSING details
+   - **DO NOT provide step-by-step guidance yet**
+   - **DO NOT include "Immediate Steps" sections**
+   - End with your question and STOP
+
+IF ALL key details are already clear and specific → Provide complete step-by-step guidance
+
+**EXAMPLE - UNCLEAR CONTEXT:**
+Question: "My employee John missed 3 shifts and I'm not sure what to do"
+Missing: contact attempts, employee response, timeline
+Response: "Got it, Operit — three no-call-no-shows is definitely something we need to address right away.
+Just to confirm — have you already tried reaching out to John at all, or is this the first time you're taking action on the missed shifts?
+Based on our policy, here's what you need to do: [STOP - don't include this yet]"
+
+Remember: Your role is to think WITH managers, not FOR them. Clarify FIRST, then guide.`;
 
     messages.push({
       role: 'user',
