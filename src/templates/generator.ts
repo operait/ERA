@@ -130,6 +130,33 @@ IMPORTANT:
   }
 
   /**
+   * Check if clarification is needed using keyword detection
+   */
+  private needsClarification(
+    query: string,
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): boolean {
+    // Skip clarification check if this is a follow-up (ERA already asked a question)
+    if (conversationHistory && conversationHistory.length > 1) {
+      const lastAssistantMessage = conversationHistory.slice(-2, -1)[0]?.content || '';
+      if (lastAssistantMessage.includes('?')) {
+        return false; // This is a follow-up answer, don't ask another question
+      }
+    }
+
+    // Check if query mentions contact attempts
+    const contactKeywords = ['called', 'contacted', 'reached out', 'spoke to', 'talked to', 'emailed', 'texted', 'tried to reach', 'left a message', 'sent'];
+    const hasContactInfo = contactKeywords.some(keyword => query.toLowerCase().includes(keyword));
+
+    // Check if query is about attendance/no-show issues
+    const attendanceKeywords = ['missed', 'no show', 'no-show', 'didn\'t show', 'hasn\'t shown', 'absent', 'didn\'t come', 'not showing'];
+    const isAttendanceIssue = attendanceKeywords.some(keyword => query.toLowerCase().includes(keyword));
+
+    // If it's an attendance issue without contact info, clarification is needed
+    return isAttendanceIssue && !hasContactInfo;
+  }
+
+  /**
    * Generate conversational response using Claude
    */
   private async generateClaudeResponse(
@@ -138,6 +165,13 @@ IMPORTANT:
     conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>,
     managerFirstName?: string
   ): Promise<string> {
+    // CRITICAL: Check if we need clarification BEFORE generating response
+    if (this.needsClarification(query, conversationHistory)) {
+      // Force a clarifying question without consulting Claude
+      const name = managerFirstName ? `, ${managerFirstName}` : '';
+      return `Got it${name} — three consecutive no-shows is definitely something we need to address right away.\n\nJust to confirm — have you already tried reaching out to the employee at all, or is this the first time you're taking action on the missed shifts?`;
+    }
+
     // Prepare context from search results
     const contextText = searchContext.results
       .map((result, index) => {
