@@ -126,8 +126,19 @@ export class EmailHandler {
       return true;
     }
 
+    // Update state with email and pre-fill known variables
+    const knownVariables = {
+      ...state.variables,
+      // Auto-fill employee name/email variables from already collected data
+      employee_name: state.recipientName || '',
+      EMPLOYEE_NAME: state.recipientName || '',
+      employee_email: email,
+      EMPLOYEE_EMAIL: email,
+    };
+
     conversationStateManager.updateEmailState(conversationId, {
       recipientEmail: email,
+      variables: knownVariables,
     });
 
     // Check for missing variables in template
@@ -135,7 +146,7 @@ export class EmailHandler {
     const body = state.body || '';
     const missingVariables = emailComposer.getMissingVariables(
       subject + '\n' + body,
-      state.variables
+      knownVariables
     );
 
     if (missingVariables.length > 0) {
