@@ -265,10 +265,26 @@ Remember: Think WITH managers, not FOR them. When in doubt, ASK FIRST.`;
       content: currentPrompt
     });
 
+    // Add critical clarification instruction at the TOP of system prompt for initial queries
+    const enhancedSystemPrompt = !askedQuestion
+      ? `🚨 CRITICAL RULE - READ FIRST BEFORE ANYTHING ELSE:
+
+IF the manager's question does NOT explicitly state whether they've already contacted the employee, you MUST ask a clarifying question ONLY and provide NO steps or guidance yet.
+
+Example of MISSING contact info: "My employee missed 3 shifts and I'm not sure what to do" (unclear if they contacted employee)
+Example of CLEAR contact info: "I called my employee about missed shifts but they haven't responded" (clear they contacted)
+
+When contact info is missing: Acknowledge + Ask question + STOP (no steps, no templates, no guidance)
+
+---
+
+${systemPrompt}`
+      : systemPrompt;
+
     const message = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
-      system: systemPrompt,
+      system: enhancedSystemPrompt,
       messages
     });
 
