@@ -163,25 +163,36 @@ IMPORTANT:
 
     // Add current query with policy context
     const currentPrompt = conversationHistory && conversationHistory.length > 1
-      ? `${nameContext}\n\n**FOLLOW-UP CONTEXT:**
-The manager just responded to your last message. Their response: "${query}"
+      ? `${nameContext}\n\n🚨 THIS IS A FOLLOW-UP - THE MANAGER IS ANSWERING YOUR QUESTION 🚨
 
-Relevant policy documents:\n\n${contextText}
+**ORIGINAL MANAGER QUESTION:** "${conversationHistory.find(m => m.role === 'user')?.content}"
 
-CRITICAL INSTRUCTIONS - READ CAREFULLY:
+**YOUR LAST MESSAGE (you asked a clarifying question):**
+${conversationHistory.slice(-2, -1)[0]?.content}
 
-1. **Review the conversation history above** - you previously asked the manager a clarifying question
-2. **The manager's response "${query}" is their ANSWER to your question** - not a new policy query
-3. **Now that they've answered your question, you MUST:**
-   - Acknowledge their answer conversationally (e.g., "Got it${managerFirstName ? ', ' + managerFirstName : ''} — since this is the first time...")
-   - NOW provide the complete step-by-step guidance they originally asked for
-   - Use the policy documents above to give them detailed, actionable next steps
-   - Include any email templates or procedures mentioned in the policy
+**MANAGER'S RESPONSE (answering YOUR question):** "${query}"
 
-4. If their answer reveals they still need more context, ask ONE more specific question, then guide them
-5. Use the peer-like coaching tone from the master prompt
+Relevant policy documents for the ORIGINAL question:\n\n${contextText}
 
-This is a continuation of your conversation - the manager answered your question, so now guide them through the full process.`
+🚨 MANDATORY INSTRUCTIONS - THIS IS NOT A NEW QUERY:
+
+1. The manager's response "${query}" is their ANSWER to the clarifying question YOU asked
+2. They are NOT asking a new question about "${query}"
+3. You now have the context you needed for their ORIGINAL question: "${conversationHistory.find(m => m.role === 'user')?.content}"
+
+**YOU MUST NOW:**
+   - Acknowledge their answer: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — since this is the first time..."
+   - Immediately provide the COMPLETE step-by-step guidance for handling their ORIGINAL situation (the employee who missed 3 shifts)
+   - Use the policy documents above
+   - Include "Immediate Steps:" section with numbered action items
+   - Include voicemail template, email guidance, and documentation notes
+
+**DO NOT:**
+   - Say "I couldn't find policy information about '${query}'"
+   - Treat "${query}" as a new policy question
+   - Ask them to rephrase
+
+This is a continuation of your conversation - answer their ORIGINAL question now that you have the context.`
       : `${nameContext}\n\nManager's question: "${query}"
 
 Relevant policy documents:\n\n${contextText}
