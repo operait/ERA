@@ -161,9 +161,17 @@ IMPORTANT:
     // Build manager name context
     const nameContext = managerFirstName ? `The manager's name is ${managerFirstName}. Address them by their first name naturally in your response (e.g., "Thanks for reaching out, ${managerFirstName}").` : '';
 
+    // Check if the last assistant message was asking a question
+    const lastAssistantMessage = conversationHistory && conversationHistory.length > 1
+      ? conversationHistory.slice(-2, -1)[0]?.content || ''
+      : '';
+    const askedQuestion = lastAssistantMessage.includes('?') && conversationHistory && conversationHistory.length > 1;
+
     // Add current query with policy context
-    const currentPrompt = conversationHistory && conversationHistory.length > 1
-      ? `${nameContext}\n\n🚨 THIS IS A FOLLOW-UP - THE MANAGER IS ANSWERING YOUR QUESTION 🚨
+    const currentPrompt = askedQuestion
+      ? `${nameContext}\n\n🚨🚨🚨 THIS IS A FOLLOW-UP - THE MANAGER IS ANSWERING YOUR QUESTION 🚨🚨🚨
+
+DO NOT TREAT "${query}" AS A NEW POLICY QUERY. IT IS AN ANSWER TO YOUR QUESTION.
 
 **ORIGINAL MANAGER QUESTION:** "${conversationHistory.find(m => m.role === 'user')?.content}"
 
