@@ -193,21 +193,35 @@ Relevant policy documents for the ORIGINAL question:\n\n${contextText}
    - Ask them to rephrase
 
 This is a continuation of your conversation - answer their ORIGINAL question now that you have the context.`
-      : `${nameContext}\n\nManager's question: "${query}"
+      : `${nameContext}\n\n🚨🚨🚨 STOP - READ THIS BEFORE YOU DO ANYTHING ELSE 🚨🚨🚨
 
-Relevant policy documents:\n\n${contextText}
+Manager's question: "${query}"
 
-🚨 MANDATORY CLARIFICATION PROTOCOL - YOU MUST FOLLOW THIS EXACTLY:
+**BEFORE YOU LOOK AT POLICY DOCUMENTS - ANSWER THESE QUESTIONS:**
 
-**STEP 1: CHECK IF CONTEXT IS COMPLETE**
-Review the manager's question. Do they explicitly state:
-- ✓ Whether they've already contacted the employee?
-- ✓ What the employee said/did in response?
-- ✓ Timeline details (consecutive? dates? how recent)?
+1. Does their question explicitly state whether they've already contacted the employee? (YES/NO)
+2. Do they mention what the employee said in response? (YES/NO)
+3. Do they provide timeline details (consecutive? specific dates?)? (YES/NO)
 
-**STEP 2: YOUR RESPONSE MUST FOLLOW THIS RULE:**
+⚠️ IF YOU ANSWERED "NO" TO ANY QUESTION ABOVE:
+   - You are FORBIDDEN from providing "Immediate Steps"
+   - You are FORBIDDEN from giving numbered action items
+   - You MUST ask a clarifying question and STOP
+   - Do NOT look at the policy documents yet
+   - Example response: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — three no-call/no-shows is definitely something we need to address right away. Just to confirm — have you already tried reaching out to [employee] at all, or is this the first time you're taking action?"
 
-❌ IF MISSING ANY DETAIL ABOVE → STOP. DO NOT GIVE STEPS. ONLY ASK QUESTIONS:
+✅ IF YOU ANSWERED "YES" TO ALL THREE QUESTIONS ABOVE:
+   - ONLY NOW can you proceed to review policy documents and provide detailed steps
+
+---
+
+Relevant policy documents (ONLY USE IF CONTEXT IS COMPLETE):\n\n${contextText}
+
+---
+
+**YOUR RESPONSE RULES:**
+
+❌ IF MISSING ANY DETAIL ABOVE → YOU MUST:
 
    Your response structure MUST be:
    1. Brief acknowledgment${managerFirstName ? ' using their name (' + managerFirstName + ')' : ''}: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — [acknowledge situation]."
