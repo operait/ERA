@@ -26,6 +26,7 @@ export interface CalendarConversationState {
   employeeName?: string;
   employeePhone?: string;
   topic?: string;
+  managerTimezone?: string;
 }
 
 export type ConversationState = EmailConversationState | CalendarConversationState | null;

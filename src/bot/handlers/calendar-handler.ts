@@ -6,6 +6,7 @@
 import { TurnContext, MessageFactory } from 'botbuilder';
 import { calendarService } from '../../services/calendar';
 import { conversationStateManager } from '../../services/conversation-state';
+import { graphClient } from '../../lib/graph-client';
 import type { CalendarConversationState } from '../../services/conversation-state';
 
 export class CalendarHandler {
@@ -48,6 +49,21 @@ export class CalendarHandler {
     ));
 
     try {
+      // Fetch manager's timezone from mailbox settings
+      let managerTimezone: string | undefined;
+      try {
+        const mailboxSettings = await graphClient.getUserMailboxSettings(managerEmail);
+        managerTimezone = mailboxSettings.timeZone;
+        console.log(`📍 Detected manager timezone: ${managerTimezone}`);
+      } catch (error) {
+        console.warn('Failed to fetch manager timezone, will use default:', error);
+      }
+
+      // Store timezone in conversation state for later use
+      conversationStateManager.updateCalendarState(conversationId, {
+        managerTimezone,
+      });
+
       // Fetch available slots
       const availableSlots = await calendarService.getAvailableSlots(managerEmail, 7);
 
@@ -266,14 +282,19 @@ export class CalendarHandler {
         return true;
       }
 
-      const result = await calendarService.bookEvent(managerId, managerEmail, {
-        employeeName: state.employeeName!,
-        employeePhone: state.employeePhone,
-        topic: state.topic || 'HR Discussion',
-        startTime: selectedSlot.start,
-        endTime: selectedSlot.end,
-        reminderMinutes: 15,
-      });
+      const result = await calendarService.bookEvent(
+        managerId,
+        managerEmail,
+        {
+          employeeName: state.employeeName!,
+          employeePhone: state.employeePhone,
+          topic: state.topic || 'HR Discussion',
+          startTime: selectedSlot.start,
+          endTime: selectedSlot.end,
+          reminderMinutes: 15,
+        },
+        state.managerTimezone
+      );
 
       if (result.success) {
         await context.sendActivity(MessageFactory.text(

@@ -143,6 +143,25 @@ class GraphClient {
 
     return response;
   }
+
+  /**
+   * Get user's mailbox settings (includes timezone)
+   */
+  async getUserMailboxSettings(userId: string): Promise<any> {
+    const client = await this.getClient();
+
+    try {
+      const response = await client
+        .api(`/users/${userId}/mailboxSettings`)
+        .get();
+
+      return response;
+    } catch (error) {
+      console.warn(`Failed to get mailbox settings for ${userId}:`, error);
+      // Return default timezone if fails
+      return { timeZone: 'America/Chicago' };
+    }
+  }
 }
 
 // Export singleton instance

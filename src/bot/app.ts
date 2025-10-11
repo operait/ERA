@@ -154,6 +154,28 @@ class ERABot extends ActivityHandler {
 
       console.log(`Processing query from ${firstName}: ${userQuery}`);
 
+      // Check for special commands FIRST (before checking conversation state)
+      // This allows users to escape from multi-turn flows
+      if (userQuery.toLowerCase().startsWith('/help')) {
+        await this.sendHelpMessage(context);
+        return;
+      }
+
+      if (userQuery.toLowerCase().startsWith('/stats')) {
+        await this.sendStatsMessage(context);
+        return;
+      }
+
+      if (userQuery.toLowerCase().startsWith('!reset') || userQuery.toLowerCase().startsWith('!restart')) {
+        await this.handleReset(context, conversationId, firstName);
+        return;
+      }
+
+      if (userQuery.toLowerCase().startsWith('!sources')) {
+        await this.handleSourcesCommand(context, conversationId);
+        return;
+      }
+
       // Check if we're in an active email or calendar conversation
       if (conversationStateManager.isActive(conversationId)) {
         const conversationType = conversationStateManager.getType(conversationId);
@@ -186,27 +208,6 @@ class ERABot extends ActivityHandler {
         { type: ActivityTypes.Typing },
         { type: 'delay', value: 500 }
       ]);
-
-      // Check for special commands
-      if (userQuery.toLowerCase().startsWith('/help')) {
-        await this.sendHelpMessage(context);
-        return;
-      }
-
-      if (userQuery.toLowerCase().startsWith('/stats')) {
-        await this.sendStatsMessage(context);
-        return;
-      }
-
-      if (userQuery.toLowerCase().startsWith('!reset') || userQuery.toLowerCase().startsWith('!restart')) {
-        await this.handleReset(context, conversationId, firstName);
-        return;
-      }
-
-      if (userQuery.toLowerCase().startsWith('!sources')) {
-        await this.handleSourcesCommand(context, conversationId);
-        return;
-      }
 
       // Detect conversational endings (thank you, goodbye, etc.)
       if (this.isConversationalEnding(userQuery)) {
@@ -254,18 +255,35 @@ class ERABot extends ActivityHandler {
       // Check if this is a follow-up in an existing conversation
       const isFollowUp = conversationState.history.length > 1;
 
-      // Retrieve relevant context
-      let searchContext = await this.retriever.getHRContext(query);
+      // Check if the last assistant message was asking a question
+      const lastAssistantMessage = isFollowUp
+        ? conversationState.history[conversationState.history.length - 2]?.content || ''
+        : '';
+      const isAnsweringQuestion = isFollowUp &&
+        lastAssistantMessage.includes('?') &&
+        conversationState.history[conversationState.history.length - 2]?.role === 'assistant';
 
-      // For follow-ups with no/poor results, search using the FIRST user message (original question)
-      // This handles cases where the follow-up is an answer to a clarifying question
-      if (isFollowUp && searchContext.results.length === 0) {
+      // Retrieve relevant context
+      let searchContext;
+
+      if (isAnsweringQuestion) {
+        // This is an answer to ERA's question - always use the FIRST user message (original question)
         const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
-        if (previousUserMessages.length > 1) {
-          // Always use the FIRST user message as it contains the main question context
-          const originalQuery = previousUserMessages[0].content;
-          console.log(`Follow-up with no results. Searching with original question: "${originalQuery}"`);
-          searchContext = await this.retriever.getHRContext(originalQuery);
+        const originalQuery = previousUserMessages[0]?.content || query;
+        console.log(`📌 User is answering ERA's question. Using original query for search: "${originalQuery}"`);
+        searchContext = await this.retriever.getHRContext(originalQuery);
+      } else {
+        // This is a new query or regular follow-up
+        searchContext = await this.retriever.getHRContext(query);
+
+        // For regular follow-ups with no/poor results, fall back to original question
+        if (isFollowUp && searchContext.results.length === 0) {
+          const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
+          if (previousUserMessages.length > 1) {
+            const originalQuery = previousUserMessages[0].content;
+            console.log(`Follow-up with no results. Searching with original question: "${originalQuery}"`);
+            searchContext = await this.retriever.getHRContext(originalQuery);
+          }
         }
       }
 

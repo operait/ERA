@@ -28,6 +28,7 @@ class CalendarService {
   private readonly WORKING_HOURS_END = 17; // 5 PM
   private readonly DEFAULT_MEETING_DURATION = 30; // minutes
   private readonly DAYS_AHEAD = 7; // Look 7 days ahead
+  private readonly DEFAULT_TIMEZONE = 'America/Chicago'; // Central Time (Fitness Connection HQ)
 
   /**
    * Get available time slots for a manager
@@ -42,6 +43,9 @@ class CalendarService {
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + daysAhead);
 
+      console.log(`📅 Fetching calendar availability for ${managerEmail}`);
+      console.log(`   Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
       // Get calendar events from Graph API
       const calendarView = await graphClient.getCalendarView(
         managerEmail,
@@ -49,8 +53,25 @@ class CalendarService {
         endDate.toISOString()
       );
 
+      console.log(`   Found ${calendarView.value?.length || 0} calendar events`);
+
+      if (calendarView.value && calendarView.value.length > 0) {
+        console.log('   Busy times:');
+        calendarView.value.forEach((event: any) => {
+          console.log(`     - ${event.subject}: ${event.start.dateTime} to ${event.end.dateTime}`);
+        });
+      }
+
       const busySlots = this.parseCalendarEvents(calendarView.value || []);
       const availableSlots = this.findAvailableSlots(startDate, endDate, busySlots);
+
+      console.log(`   Generated ${availableSlots.length} available slots`);
+      if (availableSlots.length > 0) {
+        console.log('   First few available:');
+        availableSlots.slice(0, 5).forEach(slot => {
+          console.log(`     - ${slot.formatted}`);
+        });
+      }
 
       return availableSlots;
     } catch (error: any) {
@@ -63,14 +84,32 @@ class CalendarService {
    * Parse calendar events into busy time slots
    */
   private parseCalendarEvents(events: any[]): TimeSlot[] {
-    return events.map(event => ({
-      start: new Date(event.start.dateTime),
-      end: new Date(event.end.dateTime),
-      formatted: this.formatTimeSlot(
-        new Date(event.start.dateTime),
-        new Date(event.end.dateTime)
-      ),
-    }));
+    return events.map(event => {
+      // Graph API returns dateTime in format: "2025-10-11T14:00:00.0000000"
+      // with a separate timeZone field like "Pacific Standard Time"
+      // We need to parse this correctly
+      const startDateTime = event.start.dateTime;
+      const endDateTime = event.end.dateTime;
+      const timeZone = event.start.timeZone;
+
+      console.log(`     Parsing event: ${event.subject}`);
+      console.log(`       Raw start: ${startDateTime} (${timeZone})`);
+      console.log(`       Raw end: ${endDateTime}`);
+
+      // Parse the datetime - Graph API returns it in the event's timezone
+      // For now, we'll parse as-is and let JavaScript handle it
+      const start = new Date(startDateTime);
+      const end = new Date(endDateTime);
+
+      console.log(`       Parsed start: ${start.toISOString()} (${start.toString()})`);
+      console.log(`       Parsed end: ${end.toISOString()}`);
+
+      return {
+        start,
+        end,
+        formatted: this.formatTimeSlot(start, end),
+      };
+    });
   }
 
   /**
@@ -219,10 +258,14 @@ class CalendarService {
       return { slot, score };
     });
 
-    return scored
+    const topSlots = scored
       .sort((a, b) => b.score - a.score)
       .slice(0, count)
       .map(s => s.slot);
+
+    console.log(`   Recommended ${topSlots.length} top slots to user`);
+
+    return topSlots;
   }
 
   /**
@@ -231,9 +274,29 @@ class CalendarService {
   async bookEvent(
     managerId: string,
     managerEmail: string,
-    booking: BookingRequest
+    booking: BookingRequest,
+    managerTimezone?: string
   ): Promise<BookingResult> {
     try {
+      // Format the datetime for Graph API without timezone conversion
+      // The Date objects are already in the manager's local time
+      const formatDateTimeLocal = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+      };
+
+      // Use manager's timezone or fall back to default
+      const timezone = managerTimezone || this.DEFAULT_TIMEZONE;
+
+      console.log(`📅 Booking calendar event in timezone: ${timezone}`);
+      console.log(`   Start: ${formatDateTimeLocal(booking.startTime)}`);
+      console.log(`   End: ${formatDateTimeLocal(booking.endTime)}`);
+
       // Create calendar event
       const event = {
         subject: `Call: ${booking.employeeName} - ${booking.topic}`,
@@ -242,12 +305,12 @@ class CalendarService {
           content: this.createEventDescription(booking),
         },
         start: {
-          dateTime: booking.startTime.toISOString(),
-          timeZone: 'UTC',
+          dateTime: formatDateTimeLocal(booking.startTime),
+          timeZone: timezone,
         },
         end: {
-          dateTime: booking.endTime.toISOString(),
-          timeZone: 'UTC',
+          dateTime: formatDateTimeLocal(booking.endTime),
+          timeZone: timezone,
         },
         isReminderOn: true,
         reminderMinutesBeforeStart: booking.reminderMinutes || 15,
