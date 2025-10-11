@@ -193,7 +193,13 @@ class EmailComposerService {
 
       // Send email via Graph API
       try {
+        console.log(`Attempting to send email via Graph API as user: ${managerEmail}`);
+        console.log(`Recipient: ${emailData.recipientEmail}`);
+        console.log(`Subject: ${filledSubject}`);
+
         await graphClient.sendMail(managerEmail, graphEmail.message, true);
+
+        console.log('Email sent successfully via Graph API');
 
         // Update log to sent
         await supabase
@@ -206,18 +212,27 @@ class EmailComposerService {
           emailLogId: emailLog.id,
         };
       } catch (graphError: any) {
+        console.error('Graph API error when sending email:', graphError);
+        console.error('Error details:', {
+          message: graphError.message,
+          code: graphError.code,
+          statusCode: graphError.statusCode,
+          body: graphError.body,
+        });
+
         // Update log to failed
+        const errorMessage = graphError.message || graphError.body?.error?.message || 'Unknown error';
         await supabase
           .from('email_logs')
           .update({
             status: 'failed',
-            error_message: graphError.message || 'Unknown error',
+            error_message: errorMessage,
           })
           .eq('id', emailLog.id);
 
         return {
           success: false,
-          error: graphError.message || 'Failed to send email via Microsoft Graph',
+          error: `Failed to send email: ${errorMessage}`,
         };
       }
     } catch (error: any) {
