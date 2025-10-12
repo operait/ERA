@@ -77,16 +77,22 @@ class GraphClient {
   /**
    * Get user's calendar events within a date range
    */
-  async getCalendarView(userId: string, startDateTime: string, endDateTime: string): Promise<any> {
+  async getCalendarView(
+    userId: string,
+    startDateTime: string,
+    endDateTime: string,
+    timezone: string = 'America/Chicago'
+  ): Promise<any> {
     const client = await this.getClient();
 
     const response = await client
       .api(`/users/${userId}/calendar/calendarView`)
+      .header('Prefer', `outlook.timezone="${timezone}"`)
       .query({
         startDateTime,
         endDateTime,
       })
-      .select('subject,start,end,location,attendees')
+      .select('subject,start,end,location,attendees,showAs')
       .orderby('start/dateTime')
       .get();
 

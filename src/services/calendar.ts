@@ -35,7 +35,8 @@ class CalendarService {
    */
   async getAvailableSlots(
     managerEmail: string,
-    daysAhead: number = this.DAYS_AHEAD
+    daysAhead: number = this.DAYS_AHEAD,
+    managerTimezone: string = this.DEFAULT_TIMEZONE
   ): Promise<TimeSlot[]> {
     try {
       const now = new Date();
@@ -44,25 +45,30 @@ class CalendarService {
       endDate.setDate(endDate.getDate() + daysAhead);
 
       console.log(`📅 Fetching calendar availability for ${managerEmail}`);
+      console.log(`   Timezone: ${managerTimezone}`);
       console.log(`   Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
-      // Get calendar events from Graph API
+      // Get calendar events from Graph API with timezone preference
       const calendarView = await graphClient.getCalendarView(
         managerEmail,
         startDate.toISOString(),
-        endDate.toISOString()
+        endDate.toISOString(),
+        managerTimezone
       );
 
       console.log(`   Found ${calendarView.value?.length || 0} calendar events`);
 
       if (calendarView.value && calendarView.value.length > 0) {
-        console.log('   Busy times:');
+        console.log('   Calendar events found:');
         calendarView.value.forEach((event: any) => {
-          console.log(`     - ${event.subject}: ${event.start.dateTime} to ${event.end.dateTime}`);
+          const status = event.showAs || 'unknown';
+          console.log(`     - ${event.subject} [${status}]: ${event.start.dateTime} to ${event.end.dateTime}`);
         });
       }
 
       const busySlots = this.parseCalendarEvents(calendarView.value || []);
+      console.log(`   Busy slots after filtering: ${busySlots.length}`);
+
       const availableSlots = this.findAvailableSlots(startDate, endDate, busySlots);
 
       console.log(`   Generated ${availableSlots.length} available slots`);
@@ -84,32 +90,39 @@ class CalendarService {
    * Parse calendar events into busy time slots
    */
   private parseCalendarEvents(events: any[]): TimeSlot[] {
-    return events.map(event => {
-      // Graph API returns dateTime in format: "2025-10-11T14:00:00.0000000"
-      // with a separate timeZone field like "Pacific Standard Time"
-      // We need to parse this correctly
-      const startDateTime = event.start.dateTime;
-      const endDateTime = event.end.dateTime;
-      const timeZone = event.start.timeZone;
+    return events
+      .filter(event => {
+        // Filter out events marked as "free" (they don't block availability)
+        // showAs values: free, tentative, busy, oof, workingElsewhere, unknown
+        return event.showAs !== 'free';
+      })
+      .map(event => {
+        // Graph API returns dateTime in format: "2025-10-11T14:00:00.0000000"
+        // When we use the Prefer header with timezone, Graph returns times in that timezone
+        // The dateTime string is timezone-naive, but represents the time in the requested timezone
+        const startDateTime = event.start.dateTime;
+        const endDateTime = event.end.dateTime;
+        const timeZone = event.start.timeZone;
 
-      console.log(`     Parsing event: ${event.subject}`);
-      console.log(`       Raw start: ${startDateTime} (${timeZone})`);
-      console.log(`       Raw end: ${endDateTime}`);
+        console.log(`     Parsing event: ${event.subject} (${event.showAs || 'busy'})`);
+        console.log(`       Raw start: ${startDateTime} (${timeZone})`);
+        console.log(`       Raw end: ${endDateTime}`);
 
-      // Parse the datetime - Graph API returns it in the event's timezone
-      // For now, we'll parse as-is and let JavaScript handle it
-      const start = new Date(startDateTime);
-      const end = new Date(endDateTime);
+        // Parse the datetime - When timezone header is set, the datetime is already in that timezone
+        // We need to interpret it as a local time, not UTC
+        // Create date by parsing the ISO string (JavaScript will interpret as local time if no Z)
+        const start = new Date(startDateTime);
+        const end = new Date(endDateTime);
 
-      console.log(`       Parsed start: ${start.toISOString()} (${start.toString()})`);
-      console.log(`       Parsed end: ${end.toISOString()}`);
+        console.log(`       Parsed start: ${start.toISOString()} (${start.toString()})`);
+        console.log(`       Parsed end: ${end.toISOString()}`);
 
-      return {
-        start,
-        end,
-        formatted: this.formatTimeSlot(start, end),
-      };
-    });
+        return {
+          start,
+          end,
+          formatted: this.formatTimeSlot(start, end),
+        };
+      });
   }
 
   /**

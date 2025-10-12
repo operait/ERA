@@ -64,8 +64,12 @@ export class CalendarHandler {
         managerTimezone,
       });
 
-      // Fetch available slots
-      const availableSlots = await calendarService.getAvailableSlots(managerEmail, 7);
+      // Fetch available slots with manager's timezone
+      const availableSlots = await calendarService.getAvailableSlots(
+        managerEmail,
+        7,
+        managerTimezone || 'America/Chicago'
+      );
 
       if (availableSlots.length === 0) {
         await context.sendActivity(MessageFactory.text(
