@@ -20,6 +20,7 @@ This guide walks you through setting up Microsoft Graph API integration for ERA'
 6. Add the following permissions:
    - `Mail.Send` - Send mail as any user
    - `Calendars.ReadWrite` - Read and write calendars in all mailboxes
+   - `MailboxSettings.Read` - Read user mailbox settings (for timezone detection)
    - `User.Read.All` - Read all users' basic profiles
 7. Click **Grant admin consent** for your organization
 
@@ -190,6 +191,16 @@ curl -X GET https://graph.microsoft.com/v1.0/users/your-email@domain.com/calenda
 3. Check if calendar is shared correctly
 4. Test Graph API access directly using Graph Explorer
 
+### Calendar showing wrong available times / timezone issues
+
+**Problem**: ERA recommends times that are actually busy on the calendar
+
+**Solution**:
+1. Add `MailboxSettings.Read` permission in Azure AD (see Step 1.1)
+2. Grant admin consent for the new permission
+3. Verify timezone detection works by checking logs for "Detected manager timezone"
+4. If timezone detection fails, events may be off by 1+ hours
+
 ### Manager email format incorrect
 
 **Problem**: The bot extracts manager email as `aadObjectId@fitnessconnection.com`
@@ -356,6 +367,12 @@ For issues or questions:
 - **Risk Level**: High
 - **Why needed**: Read calendar availability and book events for managers
 - **Alternative**: Calendars.ReadWrite (Delegated) - Requires user consent
+
+### MailboxSettings.Read (Application)
+- **Risk Level**: Low
+- **Why needed**: Detect user's timezone for accurate calendar availability
+- **Alternative**: None - Required for correct timezone handling
+- **Note**: Without this permission, calendar times may be off by 1+ hours
 
 ### User.Read.All (Application)
 - **Risk Level**: Medium
