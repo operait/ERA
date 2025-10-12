@@ -126,26 +126,41 @@ export class EmailHandler {
       return true;
     }
 
+    // Get manager name from context
+    const managerName = context.activity.from?.name || 'Manager';
+    const managerFirstName = managerName.split(' ')[0];
+
     // Update state with email and pre-fill known variables
-    const knownVariables = {
+    const knownVariables: Record<string, string> = {
       ...state.variables,
       // Auto-fill employee name/email variables from already collected data
-      employee_name: state.recipientName || '',
-      EMPLOYEE_NAME: state.recipientName || '',
-      employee_email: email,
-      EMPLOYEE_EMAIL: email,
+      'employee_name': state.recipientName || '',
+      'EMPLOYEE_NAME': state.recipientName || '',
+      'employee_email': email,
+      'EMPLOYEE_EMAIL': email,
+      // Auto-fill manager information
+      'manager_name': managerName,
+      'MANAGER_NAME': managerName,
+      'your_name': managerName,
+      // Other common fields
+      'today': new Date().toLocaleDateString(),
+      'current_date': new Date().toLocaleDateString(),
     };
+
+    // Convert [Bracket] style variables to {{bracket}} style
+    let normalizedSubject = this.normalizeBracketVariables(state.subject || '');
+    let normalizedBody = this.normalizeBracketVariables(state.body || '');
 
     conversationStateManager.updateEmailState(conversationId, {
       recipientEmail: email,
       variables: knownVariables,
+      subject: normalizedSubject,
+      body: normalizedBody,
     });
 
     // Check for missing variables in template
-    const subject = state.subject || 'HR Notice';
-    const body = state.body || '';
     const missingVariables = emailComposer.getMissingVariables(
-      subject + '\n' + body,
+      normalizedSubject + '\n' + normalizedBody,
       knownVariables
     );
 
@@ -167,6 +182,17 @@ export class EmailHandler {
     }
 
     return true;
+  }
+
+  /**
+   * Convert [Variable Name] format to {{variable_name}} format
+   */
+  private normalizeBracketVariables(text: string): string {
+    return text.replace(/\[([^\]]+)\]/g, (match, varName) => {
+      // Convert to lowercase and replace spaces with underscores
+      const normalized = varName.toLowerCase().replace(/\s+/g, '_');
+      return `{{${normalized}}}`;
+    });
   }
 
   /**
@@ -296,27 +322,58 @@ Would you like me to send this email? (Reply "yes" to send, or "no" to cancel)
    * Extract email template from Claude response
    */
   extractEmailTemplate(response: string): { subject: string; body: string } | null {
-    // Try to find email template in response
-    // Look for patterns like "Subject: ..." and email body content
+    // Remove internal guidance sections (anything between ** markers that's not part of email)
+    let cleaned = response;
 
-    const subjectMatch = response.match(/subject:\s*(.+)/i);
-    const subject = subjectMatch ? subjectMatch[1].trim() : 'HR Notice';
+    // Remove documentation tips, coaching notes, and other internal guidance
+    const internalSections = [
+      /\*\*Documentation Tips:\*\*[\s\S]*?(?=\n\n(?:[A-Z]|$))/gi,
+      /\*\*Coaching Notes:\*\*[\s\S]*?(?=\n\n(?:[A-Z]|$))/gi,
+      /\*\*Next Steps:\*\*[\s\S]*?(?=\n\n(?:[A-Z]|$))/gi,
+      /\*\*Important:\*\*[\s\S]*?(?=\n\n(?:[A-Z]|$))/gi,
+      /\*\*Caution:\*\*[\s\S]*?(?=\n\n(?:[A-Z]|$))/gi,
+      /⚠️[\s\S]*?(?=\n\n(?:[A-Z]|$))/gi,
+      /🚩[\s\S]*?(?=\n\n(?:[A-Z]|$))/gi,
+    ];
 
-    // Try to extract email body (content after "Dear" or email-like content)
-    const bodyMatch = response.match(/Dear\s+.+?[\s\S]+?(?=\n\n(?:Best|Sincerely|Regards)|$)/i);
+    for (const pattern of internalSections) {
+      cleaned = cleaned.replace(pattern, '');
+    }
+
+    // Extract subject line - look for explicit "Subject:" or "**Subject Line:**" markers
+    let subject = 'HR Notice';
+    const subjectPatterns = [
+      /\*\*Subject Line:\*\*\s*(.+?)(?:\n|$)/i,
+      /\*\*Subject:\*\*\s*(.+?)(?:\n|$)/i,
+      /Subject:\s*(.+?)(?:\n|$)/i,
+    ];
+
+    for (const pattern of subjectPatterns) {
+      const match = cleaned.match(pattern);
+      if (match) {
+        subject = match[1].trim();
+        // Remove the subject line from the body
+        cleaned = cleaned.replace(match[0], '').trim();
+        break;
+      }
+    }
+
+    // Extract body - look for the actual email content
+    // Start from "Hi [" or "Dear [" and end at signature
+    const bodyPattern = /((?:Hi|Dear)\s+\[[\s\S]+?(?:Best regards|Sincerely|Thank you)[^\n]*)/i;
+    const bodyMatch = cleaned.match(bodyPattern);
 
     if (bodyMatch) {
       return {
         subject,
-        body: bodyMatch[0].trim(),
+        body: bodyMatch[1].trim(),
       };
     }
 
-    // Fallback: use a generic template
-    return {
-      subject,
-      body: `Dear {{employee_name}},\n\n${response}\n\nBest regards,\nManagement`,
-    };
+    // Fallback: if we can't find a clear email body, return null
+    // This will prevent malformed emails from being sent
+    console.warn('Could not extract proper email template from response');
+    return null;
   }
 }
 
