@@ -243,90 +243,22 @@ Relevant policy documents for the ORIGINAL question:\n\n${contextText}
    - Ask them to rephrase
 
 This is a continuation of your conversation - answer their ORIGINAL question now that you have the context.`
-      : `${nameContext}\n\n🚨 INTERNAL ASSESSMENT (DO NOT SHOW THIS SECTION TO THE MANAGER) 🚨
-
-Manager's question: "${query}"
-
-**EVALUATE SILENTLY - DO NOT INCLUDE THIS CHECKLIST IN YOUR RESPONSE:**
-
-1. Does their question explicitly state whether they've already contacted the employee? (YES/NO)
-2. Do they mention what the employee said in response? (YES/NO)
-3. Do they provide timeline details (consecutive? specific dates?)? (YES/NO)
-
-**YOUR ACTUAL RESPONSE TO THE MANAGER:**
-
-⚠️ IF YOU ANSWERED "NO" TO ANY QUESTION:
-   - Do NOT show the checklist or your reasoning
-   - Do NOT explain which questions you answered NO to
-   - Simply provide: Brief acknowledgment + ONE clarifying question + STOP
-   - Example: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — three no-call/no-shows is definitely something we need to address right away. Just to confirm — have you already tried reaching out to [employee] at all, or is this the first time you're taking action?"
-
-✅ IF YOU ANSWERED "YES" TO ALL THREE:
-   - Provide complete step-by-step guidance using the policy documents below
-
----
+      : `${nameContext}\n\nManager's question: "${query}"
 
 Relevant policy documents:\n\n${contextText}
 
 ---
 
-**FORMATTING RULES:**
-
-❌ IF MISSING ANY DETAIL ABOVE → YOU MUST:
-
-   Your response structure MUST be:
-   1. Brief acknowledgment${managerFirstName ? ' using their name (' + managerFirstName + ')' : ''}: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — [acknowledge situation]."
-   2. ONE clarifying question: "Just to confirm — have you already tried reaching out to [employee] at all, or is this the first time you're taking action?"
-   3. STOP. Do not write ANYTHING else.
-
-   ⛔ FORBIDDEN when context is unclear:
-   - Do NOT write "Immediate Steps:"
-   - Do NOT write "Here's what you need to do:"
-   - Do NOT write "Based on our policy:"
-   - Do NOT give numbered action steps
-   - Do NOT provide voicemail templates or guidance yet
-
-✅ IF ALL DETAILS ARE CLEAR → Provide complete step-by-step guidance
-
-**EXAMPLE RESPONSES:**
-
-❌ WRONG (context unclear):
-"Got it, Operit — three no-call/no-shows is definitely something we need to address right away.
-
-**Immediate Steps:**
-1. Call John first — check in and ask what caused him to miss those shifts..."
-
-✅ CORRECT (context unclear):
-"Got it, Operit — three no-call/no-shows is definitely something we need to address right away.
-
-Just to confirm — have you already tried reaching out to John at all, or is this the first time you're taking action on the missed shifts?"
-
-Remember: Think WITH managers, not FOR them. When in doubt, ASK FIRST.`;
+Please provide guidance based on the policy documents above and the master prompt instructions. Remember to distinguish between hypothetical questions (provide immediate guidance) and active situations (ask for clarification if context is missing).`;
 
     messages.push({
       role: 'user',
       content: currentPrompt
     });
 
-    // Add critical clarification instruction at the TOP of system prompt for initial queries
-    const enhancedSystemPrompt = !askedQuestion
-      ? `🚨 CRITICAL RULES - READ FIRST BEFORE ANYTHING ELSE:
-
-1. **CHECK FOR LOGICAL INCONSISTENCIES:** If the manager's question doesn't make sense (e.g., "my employee show up for 3 days" when asking for help - showing up is good!), assume they made a typo or phrasing error. Ask for clarification: "Just to clarify — did you mean your employee **didn't** show up, or did they show up and there's something else you need help with?"
-
-2. **CHECK FOR MISSING CONTEXT:** If the question does NOT explicitly state whether they've already contacted the employee, you MUST ask a clarifying question ONLY and provide NO steps or guidance yet.
-
-Examples:
-- MISSING contact info: "My employee missed 3 shifts and I'm not sure what to do" (unclear if they contacted employee)
-- CLEAR contact info: "I called my employee about missed shifts but they haven't responded" (clear they contacted)
-- LOGICAL ISSUE: "My employee show up for 3 days in a row" (doesn't make sense - why ask for help if employee showed up?)
-
-When context is missing OR question doesn't make logical sense: Acknowledge + Ask clarifying question + STOP (no steps, no templates, no guidance)
-
----
-
-${systemPrompt}`
-      : systemPrompt;
+    // Use the master prompt directly - it already contains all clarification logic
+    // No need to prepend additional instructions that could conflict
+    const enhancedSystemPrompt = systemPrompt;
 
     const message = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
