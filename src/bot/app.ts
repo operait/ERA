@@ -280,9 +280,18 @@ class ERABot extends ActivityHandler {
       let searchContext;
 
       if (isAnsweringQuestion) {
-        // This is an answer to ERA's question - always use the FIRST user message (original question)
+        // This is an answer to ERA's question - use the FIRST NON-GREETING user message (original HR query)
         const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
-        const originalQuery = previousUserMessages[0]?.content || query;
+
+        // Find the first non-greeting user message (the actual HR query)
+        let originalQuery = query;
+        for (const msg of previousUserMessages) {
+          if (!this.isGreeting(msg.content)) {
+            originalQuery = msg.content;
+            break;
+          }
+        }
+
         console.log(`📌 User is answering ERA's question. Using original query for search: "${originalQuery}"`);
         searchContext = await this.retriever.getHRContext(originalQuery);
       } else {
