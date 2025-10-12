@@ -39,10 +39,11 @@ class CalendarService {
     managerTimezone: string = this.DEFAULT_TIMEZONE
   ): Promise<TimeSlot[]> {
     try {
+      // Create dates in UTC to match how we parse calendar events
       const now = new Date();
       const startDate = this.getNextBusinessHour(now);
       const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + daysAhead);
+      endDate.setUTCDate(endDate.getUTCDate() + daysAhead);
 
       console.log(`📅 Fetching calendar availability for ${managerEmail}`);
       console.log(`   Timezone: ${managerTimezone}`);
@@ -97,9 +98,9 @@ class CalendarService {
         return event.showAs !== 'free';
       })
       .map(event => {
-        // Graph API returns dateTime in format: "2025-10-11T14:00:00.0000000"
+        // Graph API returns dateTime in format: "2025-10-14T09:00:00.0000000"
         // When we use the Prefer header with timezone, Graph returns times in that timezone
-        // The dateTime string is timezone-naive, but represents the time in the requested timezone
+        // However, the dateTime string has no timezone indicator, so JavaScript interprets it incorrectly
         const startDateTime = event.start.dateTime;
         const endDateTime = event.end.dateTime;
         const timeZone = event.start.timeZone;
@@ -108,14 +109,22 @@ class CalendarService {
         console.log(`       Raw start: ${startDateTime} (${timeZone})`);
         console.log(`       Raw end: ${endDateTime}`);
 
-        // Parse the datetime - When timezone header is set, the datetime is already in that timezone
-        // We need to interpret it as a local time, not UTC
-        // Create date by parsing the ISO string (JavaScript will interpret as local time if no Z)
-        const start = new Date(startDateTime);
-        const end = new Date(endDateTime);
+        // CRITICAL FIX: The Graph API returns datetime without timezone indicator
+        // e.g., "2025-10-14T09:00:00.0000000" means 9 AM in the manager's timezone
+        // We need to parse this correctly - JavaScript's Date() without 'Z' treats it as LOCAL time
+        // Since the server might be in a different timezone, we need to parse manually
 
-        console.log(`       Parsed start: ${start.toISOString()} (${start.toString()})`);
-        console.log(`       Parsed end: ${end.toISOString()}`);
+        // Remove the trailing zeros that Graph API adds
+        const cleanStart = startDateTime.split('.')[0]; // "2025-10-14T09:00:00"
+        const cleanEnd = endDateTime.split('.')[0];
+
+        // Parse as UTC by appending 'Z' - this creates the Date in UTC representation
+        // The times ARE in the manager's timezone, so this preserves the actual time values
+        const start = new Date(cleanStart + 'Z');
+        const end = new Date(cleanEnd + 'Z');
+
+        console.log(`       Parsed start: ${start.toISOString()} (local: ${start.toLocaleString('en-US')})`);
+        console.log(`       Parsed end: ${end.toISOString()} (local: ${end.toLocaleString('en-US')})`);
 
         return {
           start,
@@ -136,33 +145,48 @@ class CalendarService {
     const availableSlots: TimeSlot[] = [];
     const currentSlot = new Date(startDate);
 
+    console.log(`   Finding slots between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+    console.log(`   Working hours: ${this.WORKING_HOURS_START} - ${this.WORKING_HOURS_END} (using UTC hours)`);
+
     while (currentSlot < endDate) {
+      // Use UTC methods since our busySlots are in UTC representation
       // Skip weekends
-      if (currentSlot.getDay() === 0 || currentSlot.getDay() === 6) {
-        currentSlot.setDate(currentSlot.getDate() + 1);
-        currentSlot.setHours(this.WORKING_HOURS_START, 0, 0, 0);
+      if (currentSlot.getUTCDay() === 0 || currentSlot.getUTCDay() === 6) {
+        currentSlot.setUTCDate(currentSlot.getUTCDate() + 1);
+        currentSlot.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
         continue;
       }
 
       // Skip outside working hours
-      const hour = currentSlot.getHours();
+      const hour = currentSlot.getUTCHours();
       if (hour < this.WORKING_HOURS_START || hour >= this.WORKING_HOURS_END) {
         if (hour >= this.WORKING_HOURS_END) {
-          currentSlot.setDate(currentSlot.getDate() + 1);
-          currentSlot.setHours(this.WORKING_HOURS_START, 0, 0, 0);
+          currentSlot.setUTCDate(currentSlot.getUTCDate() + 1);
+          currentSlot.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
         } else {
-          currentSlot.setHours(this.WORKING_HOURS_START, 0, 0, 0);
+          currentSlot.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
         }
         continue;
       }
 
       const slotEnd = new Date(currentSlot);
-      slotEnd.setMinutes(slotEnd.getMinutes() + this.DEFAULT_MEETING_DURATION);
+      slotEnd.setUTCMinutes(slotEnd.getUTCMinutes() + this.DEFAULT_MEETING_DURATION);
 
       // Check if slot overlaps with any busy time
       const isAvailable = !this.overlapsWithBusySlot(currentSlot, slotEnd, busySlots);
 
-      if (isAvailable && slotEnd.getHours() <= this.WORKING_HOURS_END) {
+      // Debug logging for first few slots
+      if (availableSlots.length < 5 || !isAvailable) {
+        console.log(`     Checking slot: ${this.formatTimeSlot(currentSlot, slotEnd)}`);
+        console.log(`       Slot start: ${currentSlot.toISOString()}`);
+        console.log(`       Slot end: ${slotEnd.toISOString()}`);
+        console.log(`       Available: ${isAvailable}`);
+        if (!isAvailable) {
+          console.log(`       BLOCKED by existing calendar event`);
+        }
+      }
+
+      if (isAvailable && slotEnd.getUTCHours() <= this.WORKING_HOURS_END) {
         availableSlots.push({
           start: new Date(currentSlot),
           end: new Date(slotEnd),
@@ -171,7 +195,7 @@ class CalendarService {
       }
 
       // Move to next 30-minute slot
-      currentSlot.setMinutes(currentSlot.getMinutes() + 30);
+      currentSlot.setUTCMinutes(currentSlot.getUTCMinutes() + 30);
     }
 
     return availableSlots;
@@ -185,13 +209,23 @@ class CalendarService {
     end: Date,
     busySlots: TimeSlot[]
   ): boolean {
-    return busySlots.some(busy => {
-      return (
+    const overlapping = busySlots.find(busy => {
+      const overlaps = (
         (start >= busy.start && start < busy.end) ||
         (end > busy.start && end <= busy.end) ||
         (start <= busy.start && end >= busy.end)
       );
+
+      if (overlaps) {
+        console.log(`         Overlaps with busy slot: ${busy.formatted}`);
+        console.log(`           Busy start: ${busy.start.toISOString()}`);
+        console.log(`           Busy end: ${busy.end.toISOString()}`);
+      }
+
+      return overlaps;
     });
+
+    return !!overlapping;
   }
 
   /**
@@ -219,22 +253,23 @@ class CalendarService {
 
   /**
    * Get next business hour (skip weekends and outside working hours)
+   * Uses UTC to match how we parse calendar events
    */
   private getNextBusinessHour(date: Date): Date {
     const next = new Date(date);
 
-    // If weekend, move to Monday
-    while (next.getDay() === 0 || next.getDay() === 6) {
-      next.setDate(next.getDate() + 1);
+    // If weekend, move to Monday (using UTC day)
+    while (next.getUTCDay() === 0 || next.getUTCDay() === 6) {
+      next.setUTCDate(next.getUTCDate() + 1);
     }
 
     // If outside working hours, move to next working hour
-    const hour = next.getHours();
+    const hour = next.getUTCHours();
     if (hour < this.WORKING_HOURS_START) {
-      next.setHours(this.WORKING_HOURS_START, 0, 0, 0);
+      next.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
     } else if (hour >= this.WORKING_HOURS_END) {
-      next.setDate(next.getDate() + 1);
-      next.setHours(this.WORKING_HOURS_START, 0, 0, 0);
+      next.setUTCDate(next.getUTCDate() + 1);
+      next.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
       // Check if next day is weekend
       return this.getNextBusinessHour(next);
     }
@@ -249,7 +284,7 @@ class CalendarService {
     // Preference: Next business day, morning slots
     const scored = slots.map(slot => {
       let score = 0;
-      const hour = slot.start.getHours();
+      const hour = slot.start.getUTCHours();
 
       // Prefer morning slots (9 AM - 12 PM)
       if (hour >= 9 && hour < 12) {
@@ -257,7 +292,7 @@ class CalendarService {
       }
 
       // Prefer early in the week
-      const day = slot.start.getDay();
+      const day = slot.start.getUTCDay();
       if (day === 1 || day === 2) {
         score += 5;
       }
