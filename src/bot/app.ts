@@ -255,13 +255,26 @@ class ERABot extends ActivityHandler {
       // Check if this is a follow-up in an existing conversation
       const isFollowUp = conversationState.history.length > 1;
 
-      // Check if the last assistant message was asking a question
+      // Check if the last assistant message was asking a CLARIFYING question (not a greeting)
       const lastAssistantMessage = isFollowUp
         ? conversationState.history[conversationState.history.length - 2]?.content || ''
         : '';
+
+      // Only treat as "answering question" if:
+      // 1. Last message was from assistant
+      // 2. Contains a question mark
+      // 3. Is NOT a greeting (greetings like "What can I help you with?" shouldn't count)
+      const isGreetingQuestion = lastAssistantMessage.includes('What HR situation can I help') ||
+                                  lastAssistantMessage.includes('How can I help you') ||
+                                  lastAssistantMessage.includes('What can I help you with') ||
+                                  lastAssistantMessage.includes('I\'m here to help');
+
       const isAnsweringQuestion = isFollowUp &&
         lastAssistantMessage.includes('?') &&
+        !isGreetingQuestion &&
         conversationState.history[conversationState.history.length - 2]?.role === 'assistant';
+
+      console.log(`🔍 Conversation context: isFollowUp=${isFollowUp}, isAnsweringQuestion=${isAnsweringQuestion}, isGreeting=${isGreetingQuestion}`);
 
       // Retrieve relevant context
       let searchContext;
