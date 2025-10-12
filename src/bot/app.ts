@@ -372,6 +372,9 @@ class ERABot extends ActivityHandler {
       'hi there',
       'hello there',
       'hey there',
+      'hi era',
+      'hello era',
+      'hey era',
       'good morning',
       'good afternoon',
       'good evening',
@@ -382,10 +385,31 @@ class ERABot extends ActivityHandler {
       'sup'
     ];
 
-    // Check if the message is JUST a greeting (with possible punctuation)
+    // Remove punctuation for matching
     const queryNoPunctuation = lowerQuery.replace(/[!?.]/g, '').trim();
-    return greetings.includes(queryNoPunctuation) ||
-           (queryNoPunctuation.length < 20 && greetings.some(g => queryNoPunctuation.startsWith(g)));
+
+    // STRICT matching: Only treat as greeting if:
+    // 1. Exact match to a greeting phrase, OR
+    // 2. Starts with greeting AND is very short (10 chars or less) AND has no question words
+    const questionWords = ['what', 'how', 'when', 'where', 'why', 'who', 'which', 'should', 'can', 'could', 'would', 'do', 'does', 'is', 'are'];
+    const hasQuestionWord = questionWords.some(qw => queryNoPunctuation.includes(qw));
+
+    // If it contains a question word, it's NOT a greeting - it's a query
+    if (hasQuestionWord) {
+      return false;
+    }
+
+    // Check for exact greeting match
+    if (greetings.includes(queryNoPunctuation)) {
+      return true;
+    }
+
+    // Only allow very short messages (10 chars or less) starting with greetings
+    if (queryNoPunctuation.length <= 10 && greetings.some(g => queryNoPunctuation.startsWith(g))) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
