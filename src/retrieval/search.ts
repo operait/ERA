@@ -211,7 +211,10 @@ export class DocumentRetriever {
       'disciplinary': ['corrective action', 'warning', 'performance issues'],
       'harassment': ['discrimination', 'workplace behavior', 'inappropriate conduct'],
       'leave': ['time off', 'vacation', 'sick leave', 'FMLA'],
-      'performance': ['evaluation', 'review', 'improvement plan', 'goals']
+      'performance': ['evaluation', 'review', 'improvement plan', 'goals'],
+      'missed': ['absent', 'no-show', 'no call no show', 'skipped'],
+      'show up': ['attend', 'appear', 'report to work', 'come in'],
+      'doesn\'t': ['does not', 'didn\'t', 'did not', 'won\'t', 'will not']
     };
 
     // Add relevant expansions
@@ -225,6 +228,7 @@ export class DocumentRetriever {
       }
     });
 
+    console.log(`🔍 Query expansion: ${expansions.length} variations from "${query}"`);
     return expansions;
   }
 

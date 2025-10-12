@@ -274,7 +274,9 @@ class ERABot extends ActivityHandler {
         searchContext = await this.retriever.getHRContext(originalQuery);
       } else {
         // This is a new query or regular follow-up
+        console.log(`🔍 Searching for: "${query}"`);
         searchContext = await this.retriever.getHRContext(query);
+        console.log(`📊 Search results: ${searchContext.results.length} results, avg similarity: ${searchContext.avgSimilarity.toFixed(3)}`);
 
         // For regular follow-ups with no/poor results, fall back to original question
         if (isFollowUp && searchContext.results.length === 0) {
@@ -288,6 +290,7 @@ class ERABot extends ActivityHandler {
       }
 
       if (searchContext.results.length === 0) {
+        console.log(`⚠️ No results found for query: "${query}"`);
         const noResultsMessage = `I couldn't find specific policy information related to "${query}". Please try rephrasing your question or contact HR directly for assistance.`;
 
         await context.sendActivity(MessageFactory.text(noResultsMessage));
@@ -296,6 +299,8 @@ class ERABot extends ActivityHandler {
         this.addToHistory(conversationId, 'assistant', noResultsMessage);
         return;
       }
+
+      console.log(`✅ Proceeding with ${searchContext.results.length} results`);
 
       // Generate response with conversation history
       const generatedResponse = await this.responseGenerator.generateResponse(
