@@ -144,6 +144,13 @@ IMPORTANT:
       }
     }
 
+    // DISABLE keyword-based clarification entirely - let Claude's master prompt handle this
+    // The master prompt already has sophisticated clarification logic built in
+    // Having two layers of clarification causes ERA to ask questions when it shouldn't
+    console.log('⏭️ Skipping keyword-based clarification check - deferring to Claude master prompt');
+    return false;
+
+    /* REMOVED: Keyword-based clarification that conflicted with master prompt
     // Check if query mentions contact attempts
     const contactKeywords = ['called', 'contacted', 'reached out', 'spoke to', 'talked to', 'emailed', 'texted', 'tried to reach', 'left a message', 'sent'];
     const hasContactInfo = contactKeywords.some(keyword => query.toLowerCase().includes(keyword));
@@ -154,6 +161,7 @@ IMPORTANT:
 
     // If it's an attendance issue without contact info, clarification is needed
     return isAttendanceIssue && !hasContactInfo;
+    */
   }
 
   /**
