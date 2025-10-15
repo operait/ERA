@@ -203,53 +203,19 @@ IMPORTANT:
     // Build manager name context
     const nameContext = managerFirstName ? `The manager's name is ${managerFirstName}. Address them by their first name naturally in your response (e.g., "Thanks for reaching out, ${managerFirstName}").` : '';
 
-    // Check if the last assistant message was asking a question
-    const lastAssistantMessage = conversationHistory && conversationHistory.length > 1
-      ? conversationHistory.slice(-2, -1)[0]?.content || ''
-      : '';
-    const askedQuestion = lastAssistantMessage.includes('?') && conversationHistory && conversationHistory.length > 1;
-
     // Add current query with policy context
-    const currentPrompt = askedQuestion
-      ? `${nameContext}\n\n🚨🚨🚨 THIS IS A FOLLOW-UP - THE MANAGER IS ANSWERING YOUR QUESTION 🚨🚨🚨
+    // Trust the master prompt to handle follow-ups correctly based on conversation history
+    const currentPrompt = `${nameContext}
 
-DO NOT TREAT "${query}" AS A NEW POLICY QUERY. IT IS AN ANSWER TO YOUR QUESTION.
+Manager's question: "${query}"
 
-**ORIGINAL MANAGER QUESTION:** "${conversationHistory.find(m => m.role === 'user')?.content}"
+Relevant policy documents:
 
-**YOUR LAST MESSAGE (you asked a clarifying question):**
-${conversationHistory.slice(-2, -1)[0]?.content}
-
-**MANAGER'S RESPONSE (answering YOUR question):** "${query}"
-
-Relevant policy documents for the ORIGINAL question:\n\n${contextText}
-
-🚨 MANDATORY INSTRUCTIONS - THIS IS NOT A NEW QUERY:
-
-1. The manager's response "${query}" is their ANSWER to the clarifying question YOU asked
-2. They are NOT asking a new question about "${query}"
-3. You now have the context you needed for their ORIGINAL question: "${conversationHistory.find(m => m.role === 'user')?.content}"
-
-**YOU MUST NOW:**
-   - Acknowledge their answer: "Got it${managerFirstName ? ', ' + managerFirstName : ''} — since this is the first time..."
-   - Immediately provide the COMPLETE step-by-step guidance for handling their ORIGINAL situation (the employee who missed 3 shifts)
-   - Use the policy documents above
-   - Include "Immediate Steps:" section with numbered action items
-   - Include voicemail template, email guidance, and documentation notes
-
-**DO NOT:**
-   - Say "I couldn't find policy information about '${query}'"
-   - Treat "${query}" as a new policy question
-   - Ask them to rephrase
-
-This is a continuation of your conversation - answer their ORIGINAL question now that you have the context.`
-      : `${nameContext}\n\nManager's question: "${query}"
-
-Relevant policy documents:\n\n${contextText}
+${contextText}
 
 ---
 
-Please provide guidance based on the policy documents above and the master prompt instructions. Remember to distinguish between hypothetical questions (provide immediate guidance) and active situations (ask for clarification if context is missing).`;
+Please provide guidance based on the policy documents above and follow the master prompt instructions.`;
 
     messages.push({
       role: 'user',
