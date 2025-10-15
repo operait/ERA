@@ -159,7 +159,7 @@ export class DocumentRetriever {
   async getHRContext(scenario: string, category?: string): Promise<SearchContext> {
     const searchOptions: SearchOptions = {
       maxResults: 5,
-      similarityThreshold: 0.50, // Balanced threshold for real-world queries
+      similarityThreshold: 0.40, // Lower threshold for better recall on real-world queries
       categoryFilter: category,
       includeMetadata: true
     };
@@ -213,8 +213,13 @@ export class DocumentRetriever {
       'leave': ['time off', 'vacation', 'sick leave', 'FMLA'],
       'performance': ['evaluation', 'review', 'improvement plan', 'goals'],
       'missed': ['absent', 'no-show', 'no call no show', 'skipped'],
-      'show up': ['attend', 'appear', 'report to work', 'come in'],
-      'doesn\'t': ['does not', 'didn\'t', 'did not', 'won\'t', 'will not']
+      'no show': ['absent', 'missed shift', 'no call no show', 'didn\'t show up'],
+      'show up': ['attend', 'appear', 'report to work', 'come in', 'show'],
+      'shown up': ['attended', 'appeared', 'reported to work', 'come in', 'showed up'],
+      'hasn\'t': ['has not', 'didn\'t', 'did not'],
+      'didn\'t': ['did not', 'hasn\'t', 'has not'],
+      'doesn\'t': ['does not', 'won\'t', 'will not'],
+      'won\'t': ['will not', 'refuses to', 'doesn\'t']
     };
 
     // Add relevant expansions
@@ -222,11 +227,26 @@ export class DocumentRetriever {
       if (baseQuery.includes(key)) {
         terms.forEach(term => {
           if (!expansions.some(exp => exp.toLowerCase().includes(term))) {
-            expansions.push(query.replace(new RegExp(key, 'gi'), term));
+            const expandedQuery = query.replace(new RegExp(key, 'gi'), term);
+            // Only add if it's actually different
+            if (expandedQuery.toLowerCase() !== query.toLowerCase()) {
+              expansions.push(expandedQuery);
+            }
           }
         });
       }
     });
+
+    // Also try simpler versions of the query
+    // Remove specific names and possessives to focus on the situation
+    const simplifiedQuery = query
+      .replace(/\b(my|our|the)\s+employee\s+\w+\b/gi, 'employee')
+      .replace(/\b(John|Jane|Mary|Mike|Sarah)\b/gi, 'employee')
+      .trim();
+
+    if (simplifiedQuery.toLowerCase() !== query.toLowerCase()) {
+      expansions.push(simplifiedQuery);
+    }
 
     console.log(`🔍 Query expansion: ${expansions.length} variations from "${query}"`);
     return expansions;
