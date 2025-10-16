@@ -26,6 +26,22 @@ export class CalendarHandler {
       'best to call',
       'one-on-one call',
       'speak with them',
+      'reach out by phone',
+      'contact them by phone',
+      'have a conversation with',
+      'discuss with them',
+      'speak with the employee',
+      'talk to them',
+      'call them',
+      'phone them',
+      'make contact',
+      'reach them',
+      'schedule that call',
+      'set up a meeting',
+      'would you like me to schedule',
+      'i can schedule',
+      'check your calendar',
+      'find available times',
     ];
 
     const lowerResponse = response.toLowerCase();
