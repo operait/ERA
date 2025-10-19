@@ -28,7 +28,7 @@ class CalendarService {
   private readonly WORKING_HOURS_END = 17; // 5 PM
   private readonly DEFAULT_MEETING_DURATION = 30; // minutes
   private readonly DAYS_AHEAD = 7; // Look 7 days ahead
-  private readonly DEFAULT_TIMEZONE = 'America/Chicago'; // Central Time (Fitness Connection HQ)
+  private readonly DEFAULT_TIMEZONE = 'America/New_York'; // Eastern Time
 
   /**
    * Get available time slots for a manager
