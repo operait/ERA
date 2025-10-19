@@ -39,11 +39,11 @@ class CalendarService {
     managerTimezone: string = this.DEFAULT_TIMEZONE
   ): Promise<TimeSlot[]> {
     try {
-      // Create dates in UTC to match how we parse calendar events
+      // Get current time in UTC
       const now = new Date();
-      const startDate = this.getNextBusinessHour(now);
+      const startDate = this.getNextBusinessHour(now, managerTimezone);
       const endDate = new Date(startDate);
-      endDate.setUTCDate(endDate.getUTCDate() + daysAhead);
+      endDate.setDate(endDate.getDate() + daysAhead);
 
       console.log(`📅 Fetching calendar availability for ${managerEmail}`);
       console.log(`   Timezone: ${managerTimezone}`);
@@ -67,10 +67,10 @@ class CalendarService {
         });
       }
 
-      const busySlots = this.parseCalendarEvents(calendarView.value || []);
+      const busySlots = this.parseCalendarEvents(calendarView.value || [], managerTimezone);
       console.log(`   Busy slots after filtering: ${busySlots.length}`);
 
-      const availableSlots = this.findAvailableSlots(startDate, endDate, busySlots);
+      const availableSlots = this.findAvailableSlots(startDate, endDate, busySlots, managerTimezone);
 
       console.log(`   Generated ${availableSlots.length} available slots`);
       if (availableSlots.length > 0) {
@@ -89,8 +89,9 @@ class CalendarService {
 
   /**
    * Parse calendar events into busy time slots
+   * Converts Graph API times (in manager's timezone) to UTC
    */
-  private parseCalendarEvents(events: any[]): TimeSlot[] {
+  private parseCalendarEvents(events: any[], managerTimezone: string): TimeSlot[] {
     return events
       .filter(event => {
         // Filter out events marked as "free" (they don't block availability)
@@ -99,103 +100,195 @@ class CalendarService {
       })
       .map(event => {
         // Graph API returns dateTime in format: "2025-10-14T09:00:00.0000000"
-        // When we use the Prefer header with timezone, Graph returns times in that timezone
-        // However, the dateTime string has no timezone indicator, so JavaScript interprets it incorrectly
+        // This time is in the manager's timezone (timeZone field)
         const startDateTime = event.start.dateTime;
         const endDateTime = event.end.dateTime;
-        const timeZone = event.start.timeZone;
+        const timeZone = event.start.timeZone || managerTimezone;
 
         console.log(`     Parsing event: ${event.subject} (${event.showAs || 'busy'})`);
         console.log(`       Raw start: ${startDateTime} (${timeZone})`);
         console.log(`       Raw end: ${endDateTime}`);
 
-        // CRITICAL FIX: The Graph API returns datetime without timezone indicator
-        // e.g., "2025-10-14T09:00:00.0000000" means 9 AM in the manager's timezone
-        // We need to parse this correctly - JavaScript's Date() without 'Z' treats it as LOCAL time
-        // Since the server might be in a different timezone, we need to parse manually
-
-        // Remove the trailing zeros that Graph API adds
+        // Parse the datetime strings (remove trailing zeros)
         const cleanStart = startDateTime.split('.')[0]; // "2025-10-14T09:00:00"
         const cleanEnd = endDateTime.split('.')[0];
 
-        // Parse as UTC by appending 'Z' - this creates the Date in UTC representation
-        // The times ARE in the manager's timezone, so this preserves the actual time values
-        const start = new Date(cleanStart + 'Z');
-        const end = new Date(cleanEnd + 'Z');
+        // Convert from manager's timezone to UTC
+        // Strategy: Create a Date by telling JavaScript this is in the manager's timezone
+        const start = this.parseInTimezone(cleanStart, timeZone);
+        const end = this.parseInTimezone(cleanEnd, timeZone);
 
-        console.log(`       Parsed start: ${start.toISOString()} (local: ${start.toLocaleString('en-US')})`);
-        console.log(`       Parsed end: ${end.toISOString()} (local: ${end.toLocaleString('en-US')})`);
+        console.log(`       Parsed start UTC: ${start.toISOString()}`);
+        console.log(`       Parsed end UTC: ${end.toISOString()}`);
+        console.log(`       Display in manager TZ: ${this.formatTimeSlot(start, end, timeZone)}`);
 
         return {
           start,
           end,
-          formatted: this.formatTimeSlot(start, end),
+          formatted: this.formatTimeSlot(start, end, timeZone),
         };
       });
   }
 
   /**
+   * Parse a datetime string in a specific timezone and return UTC Date
+   * Example: "2025-10-21T08:00:00" in "America/Chicago" -> Date in UTC
+   *
+   * Strategy: We create a Date in UTC with the given date/time values, then find the
+   * offset between UTC and the target timezone, and adjust accordingly.
+   */
+  private parseInTimezone(dateTimeStr: string, timezone: string): Date {
+    // Parse the datetime components
+    const parts = dateTimeStr.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+    if (!parts) {
+      throw new Error(`Invalid datetime format: ${dateTimeStr}`);
+    }
+
+    const [, year, month, day, hour, minute, second] = parts;
+
+    // Step 1: Create a Date in UTC with the given time components
+    // This represents what the clock would show in UTC
+    const utcClockTime = new Date(Date.UTC(
+      parseInt(year),
+      parseInt(month) - 1, // JavaScript months are 0-indexed
+      parseInt(day),
+      parseInt(hour),
+      parseInt(minute),
+      parseInt(second)
+    ));
+
+    // Step 2: Format this UTC time as if it were displayed in the target timezone
+    // This tells us what the clock would show in the target timezone for this UTC moment
+    const clockInTargetTZ = utcClockTime.toLocaleString('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+
+    // Step 3: Parse the formatted string to extract the components
+    const tzMatch = clockInTargetTZ.match(/(\d{2})\/(\d{2})\/(\d{4}),\s(\d{2}):(\d{2}):(\d{2})/);
+    if (!tzMatch) {
+      // Fallback: assume the time is already in UTC
+      console.warn(`Could not parse timezone formatted string: ${clockInTargetTZ}`);
+      return utcClockTime;
+    }
+
+    const [, tzMonth, tzDay, tzYear, tzHour, tzMinute, tzSecond] = tzMatch;
+
+    // Step 4: Calculate the offset
+    // We want: when it's X:00 in the target timezone, what time is it in UTC?
+    // We have: when it's Y:00 in UTC, it displays as Z:00 in the target timezone
+    // Offset = (desired local time) - (actual local time from UTC moment)
+    const desiredMs = Date.UTC(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hour),
+      parseInt(minute),
+      parseInt(second)
+    );
+
+    const actualInTZMs = Date.UTC(
+      parseInt(tzYear),
+      parseInt(tzMonth) - 1,
+      parseInt(tzDay),
+      parseInt(tzHour),
+      parseInt(tzMinute),
+      parseInt(tzSecond)
+    );
+
+    const offsetMs = desiredMs - actualInTZMs;
+
+    // Step 5: Apply the offset to get the correct UTC time
+    // When it's 8:00 AM in Chicago, we need to find what UTC time that represents
+    return new Date(utcClockTime.getTime() + offsetMs);
+  }
+
+  /**
    * Find available time slots within working hours
+   * All dates are in UTC, but we need to check working hours in the manager's timezone
    */
   private findAvailableSlots(
     startDate: Date,
     endDate: Date,
-    busySlots: TimeSlot[]
+    busySlots: TimeSlot[],
+    managerTimezone: string
   ): TimeSlot[] {
     const availableSlots: TimeSlot[] = [];
     const currentSlot = new Date(startDate);
 
     console.log(`   Finding slots between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-    console.log(`   Working hours: ${this.WORKING_HOURS_START} - ${this.WORKING_HOURS_END} (using UTC hours)`);
+    console.log(`   Working hours: ${this.WORKING_HOURS_START} - ${this.WORKING_HOURS_END} (in ${managerTimezone})`);
 
     while (currentSlot < endDate) {
-      // Use UTC methods since our busySlots are in UTC representation
+      // Get the hour in the manager's timezone
+      const hourInTZ = parseInt(currentSlot.toLocaleString('en-US', {
+        timeZone: managerTimezone,
+        hour: '2-digit',
+        hour12: false,
+      }));
+
+      const dayInTZ = currentSlot.toLocaleString('en-US', {
+        timeZone: managerTimezone,
+        weekday: 'short',
+      });
+
       // Skip weekends
-      if (currentSlot.getUTCDay() === 0 || currentSlot.getUTCDay() === 6) {
-        currentSlot.setUTCDate(currentSlot.getUTCDate() + 1);
-        currentSlot.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
+      if (dayInTZ === 'Sat' || dayInTZ === 'Sun') {
+        currentSlot.setTime(currentSlot.getTime() + 24 * 60 * 60 * 1000); // Add 1 day
         continue;
       }
 
       // Skip outside working hours
-      const hour = currentSlot.getUTCHours();
-      if (hour < this.WORKING_HOURS_START || hour >= this.WORKING_HOURS_END) {
-        if (hour >= this.WORKING_HOURS_END) {
-          currentSlot.setUTCDate(currentSlot.getUTCDate() + 1);
-          currentSlot.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
-        } else {
-          currentSlot.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
-        }
+      if (hourInTZ < this.WORKING_HOURS_START || hourInTZ >= this.WORKING_HOURS_END) {
+        currentSlot.setTime(currentSlot.getTime() + 30 * 60 * 1000); // Move forward 30 min
         continue;
       }
 
-      const slotEnd = new Date(currentSlot);
-      slotEnd.setUTCMinutes(slotEnd.getUTCMinutes() + this.DEFAULT_MEETING_DURATION);
+      const slotEnd = new Date(currentSlot.getTime() + this.DEFAULT_MEETING_DURATION * 60 * 1000);
+
+      // Check if slot end is still within working hours
+      const endHourInTZ = parseInt(slotEnd.toLocaleString('en-US', {
+        timeZone: managerTimezone,
+        hour: '2-digit',
+        hour12: false,
+      }));
+
+      if (endHourInTZ > this.WORKING_HOURS_END) {
+        // Slot would go past end of working day, skip to next day
+        currentSlot.setTime(currentSlot.getTime() + 30 * 60 * 1000);
+        continue;
+      }
 
       // Check if slot overlaps with any busy time
       const isAvailable = !this.overlapsWithBusySlot(currentSlot, slotEnd, busySlots);
 
       // Debug logging for first few slots
       if (availableSlots.length < 5 || !isAvailable) {
-        console.log(`     Checking slot: ${this.formatTimeSlot(currentSlot, slotEnd)}`);
-        console.log(`       Slot start: ${currentSlot.toISOString()}`);
-        console.log(`       Slot end: ${slotEnd.toISOString()}`);
+        console.log(`     Checking slot: ${this.formatTimeSlot(currentSlot, slotEnd, managerTimezone)}`);
+        console.log(`       Slot start UTC: ${currentSlot.toISOString()}`);
+        console.log(`       Slot end UTC: ${slotEnd.toISOString()}`);
         console.log(`       Available: ${isAvailable}`);
         if (!isAvailable) {
           console.log(`       BLOCKED by existing calendar event`);
         }
       }
 
-      if (isAvailable && slotEnd.getUTCHours() <= this.WORKING_HOURS_END) {
+      if (isAvailable) {
         availableSlots.push({
           start: new Date(currentSlot),
           end: new Date(slotEnd),
-          formatted: this.formatTimeSlot(currentSlot, slotEnd),
+          formatted: this.formatTimeSlot(currentSlot, slotEnd, managerTimezone),
         });
       }
 
       // Move to next 30-minute slot
-      currentSlot.setUTCMinutes(currentSlot.getUTCMinutes() + 30);
+      currentSlot.setTime(currentSlot.getTime() + 30 * 60 * 1000);
     }
 
     return availableSlots;
@@ -229,11 +322,9 @@ class CalendarService {
   }
 
   /**
-   * Format time slot for display
-   * Uses UTC methods since our Date objects are stored in UTC representation
-   * of the manager's local time
+   * Format time slot for display in the manager's timezone
    */
-  private formatTimeSlot(start: Date, end: Date): string {
+  private formatTimeSlot(start: Date, end: Date, timezone: string): string {
     const options: Intl.DateTimeFormatOptions = {
       weekday: 'short',
       month: 'short',
@@ -241,7 +332,7 @@ class CalendarService {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'UTC', // CRITICAL: Use UTC since our dates are UTC-represented local times
+      timeZone: timezone,
     };
 
     const startStr = start.toLocaleString('en-US', options);
@@ -249,33 +340,61 @@ class CalendarService {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'UTC', // CRITICAL: Use UTC since our dates are UTC-represented local times
+      timeZone: timezone,
     });
 
     return `${startStr} - ${endTime}`;
   }
 
   /**
-   * Get next business hour (skip weekends and outside working hours)
-   * Uses UTC to match how we parse calendar events
+   * Get next business hour in the manager's timezone
+   * Returns a Date in UTC that represents the next business hour in the manager's timezone
    */
-  private getNextBusinessHour(date: Date): Date {
-    const next = new Date(date);
+  private getNextBusinessHour(date: Date, timezone: string): Date {
+    let next = new Date(date);
 
-    // If weekend, move to Monday (using UTC day)
-    while (next.getUTCDay() === 0 || next.getUTCDay() === 6) {
-      next.setUTCDate(next.getUTCDate() + 1);
+    // Get the day and hour in the manager's timezone
+    let dayInTZ = next.toLocaleString('en-US', { timeZone: timezone, weekday: 'short' });
+    let hourInTZ = parseInt(next.toLocaleString('en-US', { timeZone: timezone, hour: '2-digit', hour12: false }));
+
+    // Skip to next Monday if weekend
+    while (dayInTZ === 'Sat' || dayInTZ === 'Sun') {
+      next = new Date(next.getTime() + 24 * 60 * 60 * 1000);
+      dayInTZ = next.toLocaleString('en-US', { timeZone: timezone, weekday: 'short' });
+      hourInTZ = parseInt(next.toLocaleString('en-US', { timeZone: timezone, hour: '2-digit', hour12: false }));
     }
 
-    // If outside working hours, move to next working hour
-    const hour = next.getUTCHours();
-    if (hour < this.WORKING_HOURS_START) {
-      next.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
-    } else if (hour >= this.WORKING_HOURS_END) {
-      next.setUTCDate(next.getUTCDate() + 1);
-      next.setUTCHours(this.WORKING_HOURS_START, 0, 0, 0);
-      // Check if next day is weekend
-      return this.getNextBusinessHour(next);
+    // If before working hours, move to start of working day
+    if (hourInTZ < this.WORKING_HOURS_START) {
+      // Find the UTC time that corresponds to 9 AM in the manager's timezone on this date
+      const dateInTZ = next.toLocaleString('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      const [month, day, year] = dateInTZ.split('/');
+      const startOfDay = this.parseInTimezone(
+        `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${String(this.WORKING_HOURS_START).padStart(2, '0')}:00:00`,
+        timezone
+      );
+      return startOfDay;
+    }
+
+    // If after working hours, move to next business day start
+    if (hourInTZ >= this.WORKING_HOURS_END) {
+      next = new Date(next.getTime() + 24 * 60 * 60 * 1000);
+      return this.getNextBusinessHour(next, timezone);
+    }
+
+    // Round up to next 30-minute interval
+    const minuteInTZ = parseInt(next.toLocaleString('en-US', { timeZone: timezone, minute: '2-digit' }));
+    if (minuteInTZ > 0 && minuteInTZ <= 30) {
+      // Round to 30
+      next = new Date(next.getTime() + (30 - minuteInTZ) * 60 * 1000);
+    } else if (minuteInTZ > 30) {
+      // Round to next hour
+      next = new Date(next.getTime() + (60 - minuteInTZ) * 60 * 1000);
     }
 
     return next;
@@ -330,24 +449,42 @@ class CalendarService {
     managerTimezone?: string
   ): Promise<BookingResult> {
     try {
-      // Format the datetime for Graph API without timezone conversion
-      // The Date objects are already in the manager's local time
-      const formatDateTimeLocal = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-      };
-
       // Use manager's timezone or fall back to default
       const timezone = managerTimezone || this.DEFAULT_TIMEZONE;
 
+      // Format the datetime for Graph API in the manager's timezone
+      // The booking times are in UTC, we need to convert to manager's timezone
+      const formatDateTimeInTimezone = (utcDate: Date, tz: string): string => {
+        // Get the local time representation in the target timezone
+        const formatted = utcDate.toLocaleString('en-US', {
+          timeZone: tz,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        });
+
+        // Parse MM/DD/YYYY, HH:mm:ss format
+        const match = formatted.match(/(\d{2})\/(\d{2})\/(\d{4}),\s(\d{2}):(\d{2}):(\d{2})/);
+        if (!match) {
+          throw new Error(`Failed to format date: ${formatted}`);
+        }
+
+        const [, month, day, year, hour, minute, second] = match;
+        return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+      };
+
+      const startDateTime = formatDateTimeInTimezone(booking.startTime, timezone);
+      const endDateTime = formatDateTimeInTimezone(booking.endTime, timezone);
+
       console.log(`📅 Booking calendar event in timezone: ${timezone}`);
-      console.log(`   Start: ${formatDateTimeLocal(booking.startTime)}`);
-      console.log(`   End: ${formatDateTimeLocal(booking.endTime)}`);
+      console.log(`   Start UTC: ${booking.startTime.toISOString()}`);
+      console.log(`   Start ${timezone}: ${startDateTime}`);
+      console.log(`   End UTC: ${booking.endTime.toISOString()}`);
+      console.log(`   End ${timezone}: ${endDateTime}`);
 
       // Create calendar event
       const event = {
@@ -357,11 +494,11 @@ class CalendarService {
           content: this.createEventDescription(booking),
         },
         start: {
-          dateTime: formatDateTimeLocal(booking.startTime),
+          dateTime: startDateTime,
           timeZone: timezone,
         },
         end: {
-          dateTime: formatDateTimeLocal(booking.endTime),
+          dateTime: endDateTime,
           timeZone: timezone,
         },
         isReminderOn: true,
