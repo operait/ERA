@@ -296,6 +296,8 @@ class CalendarService {
 
   /**
    * Check if a time slot overlaps with any busy slots
+   * Two time ranges overlap if one starts before the other ends
+   * BUT: If one ends exactly when the other starts, they do NOT overlap (back-to-back is OK)
    */
   private overlapsWithBusySlot(
     start: Date,
@@ -303,11 +305,10 @@ class CalendarService {
     busySlots: TimeSlot[]
   ): boolean {
     const overlapping = busySlots.find(busy => {
-      const overlaps = (
-        (start >= busy.start && start < busy.end) ||
-        (end > busy.start && end <= busy.end) ||
-        (start <= busy.start && end >= busy.end)
-      );
+      // Two ranges [start1, end1) and [start2, end2) overlap if:
+      // start1 < end2 AND start2 < end1
+      // This correctly handles back-to-back slots (e.g., 9:30 end meeting, 9:30 start slot = OK)
+      const overlaps = start < busy.end && busy.start < end;
 
       if (overlaps) {
         console.log(`         Overlaps with busy slot: ${busy.formatted}`);
