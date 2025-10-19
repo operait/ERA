@@ -1,12 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)",
-      "Bash(npm run typecheck:*)",
-      "Bash(npm run build:*)",
+      "Bash(node:*)",
+      "Bash(curl -X GET \"https://api.render.com/v1/services/srv-d3esk0jipnbc739kvta0/logs?limit=100\" -H \"Authorization: Bearer %RENDER_API_KEY%\" -H \"Accept: application/json\")",
+      "Bash(curl -X GET \"https://api.render.com/v1/services/srv-d3esk0jipnbc739kvta0/logs?limit=100\" -H \"Authorization: Bearer rnd_yGVbEKCU2FyZ5w5E9GXdBCGK6M0q\" -H \"Accept: application/json\")",
+      "Bash(npm run logs:tail:*)",
+      "Bash(npm run build)",
       "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd calendar booking workflow to MASTER_PROMPT.md v3.1.0\n\nCRITICAL FIX: ERA now automatically offers calendar booking when recommending calls\n\nChanges:\n- Updated MASTER_PROMPT.md to v3.1.0 with calendar booking instructions\n- Added comprehensive calendar workflow documentation\n- Expanded calendar detection keywords in calendar-handler.ts\n- ERA now uses trigger phrases like \"call the employee\" to auto-start booking\n\nWorkflow:\n1. ERA detects when to recommend calling an employee\n2. Uses trigger phrases to activate calendar system\n3. System checks Outlook calendar for availability\n4. Presents 3 soonest time slots to manager\n5. Books event with employee details and reminder\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(Just to make sure I have the full picture:)"
     ],
     "deny": [],
     "ask": []
