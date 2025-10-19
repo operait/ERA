@@ -162,10 +162,35 @@ class GraphClient {
         .get();
 
       return response;
-    } catch (error) {
-      console.warn(`Failed to get mailbox settings for ${userId}:`, error);
-      // Return default timezone if fails
-      return { timeZone: 'America/Chicago' };
+    } catch (error: any) {
+      console.warn(`Failed to get mailbox settings for ${userId}:`, error.message || error);
+
+      // Try alternative: Get timezone from a calendar event
+      try {
+        console.log('Attempting to detect timezone from calendar events...');
+        const calendarView = await client
+          .api(`/users/${userId}/calendar/calendarView`)
+          .query({
+            startDateTime: new Date().toISOString(),
+            endDateTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+          .top(1)
+          .select('start')
+          .get();
+
+        if (calendarView.value && calendarView.value.length > 0) {
+          const eventTimezone = calendarView.value[0].start.timeZone;
+          if (eventTimezone) {
+            console.log(`✅ Detected timezone from calendar event: ${eventTimezone}`);
+            return { timeZone: eventTimezone };
+          }
+        }
+      } catch (altError) {
+        console.warn('Alternative timezone detection also failed:', altError);
+      }
+
+      // Final fallback - return null to force using default
+      return { timeZone: null };
     }
   }
 }

@@ -70,9 +70,16 @@ export class CalendarHandler {
       try {
         const mailboxSettings = await graphClient.getUserMailboxSettings(managerEmail);
         managerTimezone = mailboxSettings.timeZone;
-        console.log(`📍 Detected manager timezone: ${managerTimezone}`);
+
+        if (managerTimezone) {
+          console.log(`✅ Detected manager timezone: ${managerTimezone}`);
+        } else {
+          console.log(`⚠️  Could not detect manager timezone, using default: America/New_York`);
+          managerTimezone = 'America/New_York';
+        }
       } catch (error) {
-        console.warn('Failed to fetch manager timezone, will use default:', error);
+        console.warn('Failed to fetch manager timezone, using default Eastern time:', error);
+        managerTimezone = 'America/New_York';
       }
 
       // Store timezone in conversation state for later use
@@ -84,7 +91,7 @@ export class CalendarHandler {
       const availableSlots = await calendarService.getAvailableSlots(
         managerEmail,
         7,
-        managerTimezone || 'America/Chicago'
+        managerTimezone
       );
 
       if (availableSlots.length === 0) {
