@@ -230,6 +230,8 @@ class CalendarService {
 
   /**
    * Format time slot for display
+   * Uses UTC methods since our Date objects are stored in UTC representation
+   * of the manager's local time
    */
   private formatTimeSlot(start: Date, end: Date): string {
     const options: Intl.DateTimeFormatOptions = {
@@ -239,6 +241,7 @@ class CalendarService {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: 'UTC', // CRITICAL: Use UTC since our dates are UTC-represented local times
     };
 
     const startStr = start.toLocaleString('en-US', options);
@@ -246,6 +249,7 @@ class CalendarService {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: 'UTC', // CRITICAL: Use UTC since our dates are UTC-represented local times
     });
 
     return `${startStr} - ${endTime}`;
