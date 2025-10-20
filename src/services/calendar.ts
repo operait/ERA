@@ -75,6 +75,15 @@ class CalendarService {
       const busySlots = this.parseCalendarEvents(calendarView.value || [], managerTimezone);
       console.log(`   Busy slots after filtering: ${busySlots.length}`);
 
+      if (busySlots.length > 0) {
+        console.log('   📍 BUSY SLOTS (should block recommendations):');
+        busySlots.forEach(slot => {
+          console.log(`      ❌ BLOCKED: ${slot.formatted}`);
+        });
+      } else {
+        console.log('   ⚠️  WARNING: NO busy slots found! All times will appear available!');
+      }
+
       const availableSlots = this.findAvailableSlots(startDate, endDate, busySlots, managerTimezone);
 
       console.log(`   Generated ${availableSlots.length} available slots`);
@@ -97,13 +106,23 @@ class CalendarService {
    * Converts Graph API times (in manager's timezone) to UTC
    */
   private parseCalendarEvents(events: any[], managerTimezone: string): TimeSlot[] {
-    return events
-      .filter(event => {
-        // Filter out events marked as "free" (they don't block availability)
-        // showAs values: free, tentative, busy, oof, workingElsewhere, unknown
-        return event.showAs !== 'free';
-      })
-      .map(event => {
+    console.log(`   🔍 Parsing ${events.length} events to find busy slots...`);
+
+    const filteredEvents = events.filter(event => {
+      // Filter out events marked as "free" (they don't block availability)
+      // showAs values: free, tentative, busy, oof, workingElsewhere, unknown
+      const isBusy = event.showAs !== 'free';
+
+      if (!isBusy) {
+        console.log(`   ⏭️  SKIPPING "${event.subject}" (showAs: ${event.showAs}) - marked as FREE`);
+      }
+
+      return isBusy;
+    });
+
+    console.log(`   After filtering: ${filteredEvents.length} busy events (${events.length - filteredEvents.length} were free)`);
+
+    return filteredEvents.map(event => {
         // Graph API returns dateTime in format: "2025-10-14T09:00:00.0000000"
         // This time is in the manager's timezone (timeZone field)
         const startDateTime = event.start.dateTime;
@@ -416,7 +435,10 @@ class CalendarService {
     // and we prefer to recommend sooner times over later times
     const topSlots = slots.slice(0, count);
 
-    console.log(`   Recommended ${topSlots.length} top slots to user`);
+    console.log(`   Recommended ${topSlots.length} top slots to user:`);
+    topSlots.forEach((slot, i) => {
+      console.log(`      ${i + 1}. ✅ ${slot.formatted}`);
+    });
 
     return topSlots;
   }
