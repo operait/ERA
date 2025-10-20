@@ -403,37 +403,13 @@ class CalendarService {
 
   /**
    * Get top N recommended time slots
+   * NOTE: This method doesn't need timezone because the slots are already sorted
+   * chronologically, and we prefer earlier times which is timezone-independent
    */
   getTopRecommendations(slots: TimeSlot[], count: number = 3): TimeSlot[] {
-    // Preference: Next business day, morning slots
-    const scored = slots.map(slot => {
-      let score = 0;
-      const hour = slot.start.getUTCHours();
-
-      // Prefer morning slots (9 AM - 12 PM)
-      if (hour >= 9 && hour < 12) {
-        score += 10;
-      }
-
-      // Prefer early in the week
-      const day = slot.start.getUTCDay();
-      if (day === 1 || day === 2) {
-        score += 5;
-      }
-
-      // Prefer sooner dates
-      const daysFromNow = Math.floor(
-        (slot.start.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      );
-      score -= daysFromNow;
-
-      return { slot, score };
-    });
-
-    const topSlots = scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, count)
-      .map(s => s.slot);
+    // Simply return the first N slots, as they're already chronologically ordered
+    // and we prefer to recommend sooner times over later times
+    const topSlots = slots.slice(0, count);
 
     console.log(`   Recommended ${topSlots.length} top slots to user`);
 

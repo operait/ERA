@@ -279,5 +279,177 @@ describe('Calendar Service - Timezone Handling', () => {
       );
       expect(has930AM).toBe(false);
     });
+
+    test('should NOT recommend slots that overlap with back-to-back meetings (issue reproduction)', () => {
+      // Reported issue: User has these events in Eastern Time (America/New_York):
+      // - 9:00 AM - 10:00 AM (meeting 1)
+      // - 10:00 AM - 10:30 AM (meeting 2)
+      // - 12:00 PM - 1:30 PM (meeting 3)
+      // - 2:30 PM - 4:30 PM (meeting 4)
+      //
+      // ERA was incorrectly recommending 9:00 AM - 10:30 AM slots
+      // This should NOT happen - all slots from 9:00-10:30 should be blocked
+
+      const mockEvents = [
+        {
+          subject: 'Meeting 1',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T09:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T10:00:00.0000000', timeZone: 'America/New_York' },
+        },
+        {
+          subject: 'Meeting 2',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T10:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T10:30:00.0000000', timeZone: 'America/New_York' },
+        },
+        {
+          subject: 'Meeting 3',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T12:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T13:30:00.0000000', timeZone: 'America/New_York' },
+        },
+        {
+          subject: 'Meeting 4',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T14:30:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T16:30:00.0000000', timeZone: 'America/New_York' },
+        },
+      ];
+
+      const service = calendarService as any;
+      const busySlots = service.parseCalendarEvents(mockEvents, 'America/New_York');
+
+      // Working day: 9 AM - 5 PM Eastern = 13:00 - 21:00 UTC (Oct 20 is EDT = UTC-4)
+      const startDate = new Date('2025-10-20T13:00:00.000Z');
+      const endDate = new Date('2025-10-20T21:00:00.000Z');
+
+      const availableSlots = service.findAvailableSlots(startDate, endDate, busySlots, 'America/New_York');
+
+      // Should NOT have any slots from 9:00 AM to 10:30 AM
+      const has9to930 = availableSlots.some((slot: TimeSlot) =>
+        slot.formatted.includes('9:00 AM') && slot.formatted.includes('9:30 AM')
+      );
+      expect(has9to930).toBe(false);
+
+      const has930to10 = availableSlots.some((slot: TimeSlot) =>
+        slot.formatted.includes('9:30 AM') && slot.formatted.includes('10:00 AM')
+      );
+      expect(has930to10).toBe(false);
+
+      const has10to1030 = availableSlots.some((slot: TimeSlot) =>
+        slot.formatted.includes('10:00 AM') && slot.formatted.includes('10:30 AM')
+      );
+      expect(has10to1030).toBe(false);
+
+      // Should have 10:30 AM - 11:00 AM available (after back-to-back meetings)
+      const has1030 = availableSlots.some((slot: TimeSlot) =>
+        slot.formatted.includes('10:30 AM') && slot.formatted.includes('11:00 AM')
+      );
+      expect(has1030).toBe(true);
+
+      // Should NOT have slots from 12:00 PM to 1:30 PM
+      const has12PM = availableSlots.some((slot: TimeSlot) =>
+        (slot.formatted.includes('12:00 PM') || slot.formatted.includes('12:30 PM') || slot.formatted.includes('1:00 PM')) &&
+        !slot.formatted.includes('11:') // Exclude 11:XX times
+      );
+      expect(has12PM).toBe(false);
+
+      // Should NOT have slots that START at 2:30 PM, 3:00 PM, 3:30 PM, or 4:00 PM
+      const has230PM_start = availableSlots.some((slot: TimeSlot) =>
+        /^[A-Za-z]+,\s[A-Za-z]+\s\d+,\s2:30 PM/.test(slot.formatted)
+      );
+      const has3PM_start = availableSlots.some((slot: TimeSlot) =>
+        /^[A-Za-z]+,\s[A-Za-z]+\s\d+,\s3:00 PM/.test(slot.formatted)
+      );
+      const has330PM_start = availableSlots.some((slot: TimeSlot) =>
+        /^[A-Za-z]+,\s[A-Za-z]+\s\d+,\s3:30 PM/.test(slot.formatted)
+      );
+      const has4PM_start = availableSlots.some((slot: TimeSlot) =>
+        /^[A-Za-z]+,\s[A-Za-z]+\s\d+,\s4:00 PM/.test(slot.formatted)
+      );
+      expect(has230PM_start).toBe(false);
+      expect(has3PM_start).toBe(false);
+      expect(has330PM_start).toBe(false);
+      expect(has4PM_start).toBe(false);
+
+      // But 4:30 PM - 5:00 PM SHOULD be available (after meeting ends)
+      const has430PM_start = availableSlots.some((slot: TimeSlot) =>
+        /^[A-Za-z]+,\s[A-Za-z]+\s\d+,\s4:30 PM/.test(slot.formatted)
+      );
+      expect(has430PM_start).toBe(true);
+    });
+
+    test('should recommend correct slots with user reported schedule', () => {
+      // User reported schedule in Eastern Time on Oct 20:
+      // - 9:00 AM - 10:00 AM
+      // - 10:00 AM - 10:30 AM
+      // - 12:00 PM - 1:30 PM
+      // - 2:30 PM - 4:30 PM
+      //
+      // Expected recommendations (first 3 available 30-min slots):
+      // 1. 10:30 AM - 11:00 AM (first available after morning meetings)
+      // 2. 11:00 AM - 11:30 AM
+      // 3. 11:30 AM - 12:00 PM
+
+      const mockEvents = [
+        {
+          subject: 'Meeting 1',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T09:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T10:00:00.0000000', timeZone: 'America/New_York' },
+        },
+        {
+          subject: 'Meeting 2',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T10:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T10:30:00.0000000', timeZone: 'America/New_York' },
+        },
+        {
+          subject: 'Meeting 3',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T12:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T13:30:00.0000000', timeZone: 'America/New_York' },
+        },
+        {
+          subject: 'Meeting 4',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T14:30:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T16:30:00.0000000', timeZone: 'America/New_York' },
+        },
+      ];
+
+      const service = calendarService as any;
+      const busySlots = service.parseCalendarEvents(mockEvents, 'America/New_York');
+
+      // Working day: 9 AM - 5 PM Eastern = 13:00 - 21:00 UTC
+      const startDate = new Date('2025-10-20T13:00:00.000Z');
+      const endDate = new Date('2025-10-20T21:00:00.000Z');
+
+      const availableSlots = service.findAvailableSlots(startDate, endDate, busySlots, 'America/New_York');
+
+      // Get top 3 recommendations (this is what ERA would show to the user)
+      const recommendations = service.getTopRecommendations(availableSlots, 3);
+
+      console.log('\n📅 TOP 3 RECOMMENDATIONS:');
+      recommendations.forEach((slot: TimeSlot, i: number) => {
+        console.log(`   ${i + 1}. ${slot.formatted}`);
+      });
+
+      // Verify recommendations do NOT include any slots from 9:00-10:30 AM
+      expect(recommendations.length).toBe(3);
+
+      recommendations.forEach((slot: TimeSlot) => {
+        // Ensure no recommended slot starts before 10:30 AM
+        expect(slot.formatted).not.toMatch(/9:00 AM/);
+        expect(slot.formatted).not.toMatch(/9:30 AM/);
+        expect(slot.formatted).not.toMatch(/10:00 AM/);
+
+        // First recommendation should be 10:30 AM - 11:00 AM
+      });
+
+      expect(recommendations[0].formatted).toContain('10:30 AM');
+      expect(recommendations[0].formatted).toContain('11:00 AM');
+    });
   });
 });
