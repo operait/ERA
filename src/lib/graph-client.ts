@@ -81,10 +81,11 @@ class GraphClient {
     userId: string,
     startDateTime: string,
     endDateTime: string,
-    timezone: string = 'America/Chicago'
+    timezone: string = 'America/New_York'
   ): Promise<any> {
     const client = await this.getClient();
 
+    // Fetch all events in the date range (default top is 10, we need more)
     const response = await client
       .api(`/users/${userId}/calendar/calendarView`)
       .header('Prefer', `outlook.timezone="${timezone}"`)
@@ -94,6 +95,7 @@ class GraphClient {
       })
       .select('subject,start,end,location,attendees,showAs')
       .orderby('start/dateTime')
+      .top(250) // Fetch up to 250 events to ensure we get all events
       .get();
 
     return response;

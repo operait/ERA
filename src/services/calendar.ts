@@ -57,7 +57,12 @@ class CalendarService {
         managerTimezone
       );
 
-      console.log(`   Found ${calendarView.value?.length || 0} calendar events`);
+      const totalEvents = calendarView.value?.length || 0;
+      console.log(`   Found ${totalEvents} calendar events`);
+
+      if (totalEvents >= 250) {
+        console.warn(`   ⚠️  WARNING: Hit 250 event limit! Some events may be missing.`);
+      }
 
       if (calendarView.value && calendarView.value.length > 0) {
         console.log('   Calendar events found:');
