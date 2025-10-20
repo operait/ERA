@@ -20,13 +20,14 @@ export interface EmailConversationState {
 
 export interface CalendarConversationState {
   type: 'calendar';
-  step: 'fetching_availability' | 'awaiting_time_selection' | 'awaiting_employee_name' | 'awaiting_employee_phone' | 'awaiting_confirmation';
+  step: 'fetching_availability' | 'awaiting_time_selection' | 'awaiting_employee_name' | 'awaiting_employee_phone' | 'awaiting_confirmation' | 'completed';
   availableSlots?: Array<{ start: Date; end: Date; formatted: string }>;
   selectedSlotIndex?: number;
   employeeName?: string;
   employeePhone?: string;
   topic?: string;
   managerTimezone?: string;
+  bookedTime?: string; // Store the formatted time for reference
 }
 
 export type ConversationState = EmailConversationState | CalendarConversationState | null;

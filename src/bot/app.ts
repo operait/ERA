@@ -324,12 +324,25 @@ class ERABot extends ActivityHandler {
 
       console.log(`✅ Proceeding with ${searchContext.results.length} results`);
 
-      // Generate response with conversation history
+      // Check if there's completed calendar context to include
+      const calendarState = conversationStateManager.getState(conversationId);
+      let enrichedHistory = [...conversationState.history];
+
+      if (calendarState && calendarState.type === 'calendar' && calendarState.step === 'completed') {
+        // Add calendar context as a system message for Claude's reference
+        const calendarContext = `[Calendar Context: Just booked a call with ${calendarState.employeeName} about "${calendarState.topic}" at ${calendarState.bookedTime}${calendarState.employeePhone ? `, phone: ${calendarState.employeePhone}` : ''}]`;
+        enrichedHistory.push({
+          role: 'assistant',
+          content: calendarContext
+        });
+      }
+
+      // Generate response with conversation history (including calendar context if available)
       const generatedResponse = await this.responseGenerator.generateResponse(
         query,
         searchContext,
         undefined,
-        conversationState.history,
+        enrichedHistory,
         firstName
       );
 

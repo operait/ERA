@@ -173,6 +173,12 @@ export class CalendarHandler {
       return false;
     }
 
+    // If booking is completed, don't intercept - let main handler process follow-up questions
+    // but keep the context available for reference
+    if (state.step === 'completed') {
+      return false;
+    }
+
     switch (state.step) {
       case 'awaiting_time_selection':
         return await this.handleTimeSelection(context, conversationId, userInput, state);
@@ -355,14 +361,21 @@ export class CalendarHandler {
         await context.sendActivity(MessageFactory.text(
           `✅ Calendar event booked successfully!\n\n**${state.employeeName} - ${state.topic}**\n${selectedSlot.formatted}\n\nYou'll receive a reminder 15 minutes before.\n\nIs there anything else I can help you with${firstName !== 'there' ? ', ' + firstName : ''}?`
         ));
+
+        // Mark as completed but keep context for follow-up questions
+        conversationStateManager.updateCalendarState(conversationId, {
+          step: 'completed',
+          bookedTime: selectedSlot.formatted,
+        });
       } else {
         await context.sendActivity(MessageFactory.text(
           `❌ Failed to book calendar event: ${result.error}\n\nPlease try again or contact IT support if the issue persists.`
         ));
+
+        // Clear state on failure
+        conversationStateManager.clearState(conversationId);
       }
 
-      // Clear conversation state
-      conversationStateManager.clearState(conversationId);
       return true;
     } else if (input === 'no' || input === 'n' || input === 'cancel') {
       await context.sendActivity(MessageFactory.text(
