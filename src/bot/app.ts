@@ -331,10 +331,16 @@ class ERABot extends ActivityHandler {
       if (calendarState && calendarState.type === 'calendar' && calendarState.step === 'completed') {
         // Add calendar context as a system message for Claude's reference
         const calendarContext = `[Calendar Context: Just booked a call with ${calendarState.employeeName} about "${calendarState.topic}" at ${calendarState.bookedTime}${calendarState.employeePhone ? `, phone: ${calendarState.employeePhone}` : ''}]`;
+        console.log(`📅 Injecting calendar context into conversation: ${calendarContext}`);
         enrichedHistory.push({
           role: 'assistant',
           content: calendarContext
         });
+
+        // Clear the completed state after injecting context so we don't keep injecting it
+        conversationStateManager.clearState(conversationId);
+      } else {
+        console.log(`📅 No completed calendar state to inject (state: ${calendarState?.step || 'none'})`);
       }
 
       // Generate response with conversation history (including calendar context if available)
