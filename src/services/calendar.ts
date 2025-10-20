@@ -409,10 +409,22 @@ class CalendarService {
       return startOfDay;
     }
 
-    // If after working hours, move to next business day start
+    // If after working hours, move to next business day at 9 AM
     if (hourInTZ >= this.WORKING_HOURS_END) {
-      next = new Date(next.getTime() + 24 * 60 * 60 * 1000);
-      return this.getNextBusinessHour(next, timezone);
+      // Add a day and set to 9 AM in the manager's timezone
+      const nextDay = new Date(next.getTime() + 24 * 60 * 60 * 1000);
+      const dateInTZ = nextDay.toLocaleString('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      const [month, day, year] = dateInTZ.split('/');
+      const startOfNextDay = this.parseInTimezone(
+        `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${String(this.WORKING_HOURS_START).padStart(2, '0')}:00:00`,
+        timezone
+      );
+      return this.getNextBusinessHour(startOfNextDay, timezone); // Recurse to handle weekends
     }
 
     // Round up to next 30-minute interval
