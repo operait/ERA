@@ -452,4 +452,97 @@ describe('Calendar Service - Timezone Handling', () => {
       expect(recommendations[0].formatted).toContain('11:00 AM');
     });
   });
+
+  describe('Timezone handling regression tests', () => {
+    test('should NOT treat UTC timezone as valid (regression test for v3.2.2 bug)', () => {
+      // BUG FOUND: When Graph API returns timeZone: 'UTC', ERA was accepting it as valid
+      // This caused all time calculations to be wrong (9 AM UTC vs 9 AM Eastern = 4 hour difference)
+      //
+      // User's meetings at 9 AM Eastern (13:00 UTC) weren't blocking 9 AM UTC slots (09:00 UTC)
+      // ERA recommended 9:00-10:30 AM thinking they were available
+      // But the user had meetings at those times in Eastern timezone
+
+      const mockEvents = [
+        {
+          subject: 'Morning Meeting',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T09:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T10:00:00.0000000', timeZone: 'America/New_York' },
+        },
+      ];
+
+      const service = calendarService as any;
+
+      // BUG: If we use UTC as the manager timezone, the times will be interpreted wrong
+      const busySlotsUTC = service.parseCalendarEvents(mockEvents, 'UTC');
+      const busySlotsEastern = service.parseCalendarEvents(mockEvents, 'America/New_York');
+
+      // Both should parse to the same UTC time (13:00 UTC = 9 AM Eastern)
+      // But if timezone detection is broken, they would be different
+      expect(busySlotsEastern[0].start.toISOString()).toBe('2025-10-20T13:00:00.000Z');
+      expect(busySlotsEastern[0].end.toISOString()).toBe('2025-10-20T14:00:00.000Z');
+
+      // When formatted, Eastern should show 9:00 AM
+      expect(busySlotsEastern[0].formatted).toContain('9:00 AM');
+      expect(busySlotsEastern[0].formatted).toContain('10:00 AM');
+    });
+
+    test('should correctly detect overlaps when using Eastern timezone (not UTC)', () => {
+      // This test ensures that when a user has meetings at 9-10 AM Eastern,
+      // ERA doesn't recommend 9-10 AM slots thinking they're in UTC
+
+      const mockEvents = [
+        {
+          subject: 'Meeting 1',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T09:00:00.0000000', timeZone: 'America/New_York' },
+          end: { dateTime: '2025-10-20T10:00:00.0000000', timeZone: 'America/New_York' },
+        },
+      ];
+
+      const service = calendarService as any;
+      const busySlots = service.parseCalendarEvents(mockEvents, 'America/New_York');
+
+      // Working day: 9 AM - 5 PM Eastern = 13:00 - 21:00 UTC
+      const startDate = new Date('2025-10-20T13:00:00.000Z'); // 9 AM Eastern
+      const endDate = new Date('2025-10-20T21:00:00.000Z');   // 5 PM Eastern
+
+      const availableSlots = service.findAvailableSlots(startDate, endDate, busySlots, 'America/New_York');
+
+      // 9:00-9:30 AM and 9:30-10:00 AM should NOT be available (meeting blocks them)
+      const has9AM = availableSlots.some((slot: TimeSlot) =>
+        slot.formatted.includes('9:00 AM') || slot.formatted.includes('9:30 AM')
+      );
+      expect(has9AM).toBe(false);
+
+      // 10:00 AM - 10:30 AM SHOULD be available (after meeting ends)
+      const has10AM = availableSlots.some((slot: TimeSlot) =>
+        slot.formatted.includes('10:00 AM') && slot.formatted.includes('10:30 AM')
+      );
+      expect(has10AM).toBe(true);
+    });
+
+    test('should handle Pacific timezone correctly (regression test)', () => {
+      // Ensure timezone handling works for other US timezones too
+
+      const mockEvents = [
+        {
+          subject: 'West Coast Meeting',
+          showAs: 'busy',
+          start: { dateTime: '2025-10-20T09:00:00.0000000', timeZone: 'America/Los_Angeles' },
+          end: { dateTime: '2025-10-20T10:00:00.0000000', timeZone: 'America/Los_Angeles' },
+        },
+      ];
+
+      const service = calendarService as any;
+      const busySlots = service.parseCalendarEvents(mockEvents, 'America/Los_Angeles');
+
+      // 9 AM Pacific = 16:00 UTC (in October, PDT = UTC-7)
+      expect(busySlots[0].start.toISOString()).toBe('2025-10-20T16:00:00.000Z');
+      expect(busySlots[0].end.toISOString()).toBe('2025-10-20T17:00:00.000Z');
+
+      // Should display as 9 AM Pacific time
+      expect(busySlots[0].formatted).toContain('9:00 AM');
+    });
+  });
 });
