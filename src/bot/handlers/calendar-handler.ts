@@ -65,22 +65,48 @@ export class CalendarHandler {
     ));
 
     try {
-      // Fetch manager's timezone from mailbox settings
+      // Try multiple methods to detect the user's timezone (in priority order)
       let managerTimezone: string | undefined;
-      try {
-        const mailboxSettings = await graphClient.getUserMailboxSettings(managerEmail);
-        const detectedTimezone = mailboxSettings.timeZone;
 
-        // Treat UTC as invalid - it means the user hasn't configured their timezone properly
-        if (detectedTimezone && detectedTimezone !== 'UTC') {
-          managerTimezone = detectedTimezone;
-          console.log(`✅ Detected manager timezone: ${managerTimezone}`);
-        } else {
-          console.log(`⚠️  Mailbox timezone is ${detectedTimezone || 'not set'}, using default: America/New_York`);
-          managerTimezone = 'America/New_York';
+      // METHOD 1: Try to get timezone from Teams activity context (most reliable)
+      try {
+        // Teams provides timezone in the activity's localTimezone or entities
+        const teamsTimezone = (context.activity as any).localTimezone;
+        const entitiesTimezone = (context.activity as any).entities?.find((e: any) =>
+          e.type === 'clientInfo' || e.type === 'timezone'
+        )?.timezone;
+
+        const detectedTeamsTimezone = teamsTimezone || entitiesTimezone;
+
+        if (detectedTeamsTimezone && detectedTeamsTimezone !== 'UTC') {
+          managerTimezone = detectedTeamsTimezone;
+          console.log(`✅ Detected timezone from Teams context: ${managerTimezone}`);
         }
       } catch (error) {
-        console.warn('Failed to fetch manager timezone, using default Eastern time:', error);
+        console.log('Could not detect timezone from Teams context:', error);
+      }
+
+      // METHOD 2: Fallback to mailbox settings if Teams didn't provide timezone
+      if (!managerTimezone) {
+        try {
+          const mailboxSettings = await graphClient.getUserMailboxSettings(managerEmail);
+          const detectedTimezone = mailboxSettings.timeZone;
+
+          // Treat UTC as invalid - it means the user hasn't configured their timezone properly
+          if (detectedTimezone && detectedTimezone !== 'UTC') {
+            managerTimezone = detectedTimezone;
+            console.log(`✅ Detected timezone from mailbox settings: ${managerTimezone}`);
+          } else {
+            console.log(`⚠️  Mailbox timezone is ${detectedTimezone || 'not set'}, will try calendar events`);
+          }
+        } catch (error) {
+          console.log('Failed to fetch mailbox timezone:', error);
+        }
+      }
+
+      // METHOD 3: Final fallback - use Eastern Time
+      if (!managerTimezone) {
+        console.log(`⚠️  Could not detect timezone, using default: America/New_York`);
         managerTimezone = 'America/New_York';
       }
 
