@@ -69,12 +69,14 @@ export class CalendarHandler {
       let managerTimezone: string | undefined;
       try {
         const mailboxSettings = await graphClient.getUserMailboxSettings(managerEmail);
-        managerTimezone = mailboxSettings.timeZone;
+        const detectedTimezone = mailboxSettings.timeZone;
 
-        if (managerTimezone) {
+        // Treat UTC as invalid - it means the user hasn't configured their timezone properly
+        if (detectedTimezone && detectedTimezone !== 'UTC') {
+          managerTimezone = detectedTimezone;
           console.log(`✅ Detected manager timezone: ${managerTimezone}`);
         } else {
-          console.log(`⚠️  Could not detect manager timezone, using default: America/New_York`);
+          console.log(`⚠️  Mailbox timezone is ${detectedTimezone || 'not set'}, using default: America/New_York`);
           managerTimezone = 'America/New_York';
         }
       } catch (error) {
