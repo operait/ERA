@@ -41,6 +41,9 @@ class CalendarService {
     try {
       // Get current time in UTC
       const now = new Date();
+      console.log(`🕐 Current server time (UTC): ${now.toISOString()}`);
+      console.log(`🕐 Current server time (${managerTimezone}): ${now.toLocaleString('en-US', { timeZone: managerTimezone })}`);
+
       const startDate = this.getNextBusinessHour(now, managerTimezone);
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + daysAhead);
