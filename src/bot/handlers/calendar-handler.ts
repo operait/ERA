@@ -88,10 +88,9 @@ export class CalendarHandler {
    * Returns true if ERA is still gathering context
    */
   private containsClarifyingQuestions(response: string): boolean {
-    // Check for question marks (strong signal of clarification)
-    const hasQuestions = response.includes('?');
+    const lowerResponse = response.toLowerCase();
 
-    // Check for clarification phrases
+    // Check for clarification phrases (strong signals)
     const clarificationPhrases = [
       'just to make sure',
       'just to confirm',
@@ -106,12 +105,62 @@ export class CalendarHandler {
       'to confirm',
     ];
 
-    const lowerResponse = response.toLowerCase();
     const hasClarificationPhrases = clarificationPhrases.some(
       phrase => lowerResponse.includes(phrase)
     );
 
-    return hasQuestions || hasClarificationPhrases;
+    if (hasClarificationPhrases) {
+      return true; // Definitely clarifying
+    }
+
+    // Check for questions, but exclude simple confirmation questions
+    const hasQuestions = response.includes('?');
+    if (!hasQuestions) {
+      return false; // No questions at all
+    }
+
+    // Extract the last sentence (after the last period or newline)
+    const lastSentence = response.split(/[.\n]/).filter(s => s.trim()).pop() || response;
+
+    // Only treat as confirmation if the final question is short (< 50 chars)
+    // This avoids catching full sentences like "would you like me to schedule a call?"
+    if (lastSentence.trim().length < 50) {
+      const confirmationPatterns = [
+        /^.*schedule that\?$/i,
+        /^.*draft it\?$/i,
+        /^.*schedule the call\?$/i,
+        /^.*draft an email\?$/i,
+        /^.*schedule that call\?$/i,
+      ];
+
+      const isConfirmationOnly = confirmationPatterns.some(
+        pattern => pattern.test(lastSentence.trim())
+      );
+
+      if (isConfirmationOnly) {
+        return false; // Don't treat as clarification
+      }
+    }
+
+    // Check if question is an action offer (should not block trigger)
+    const actionOfferPhrases = [
+      'would you like me to schedule',
+      'would you like me to draft',
+      'would you like me to',
+      'i can schedule',
+      'i can draft',
+      'want me to schedule',
+      'want me to draft',
+      'shall i schedule',
+      'shall i draft',
+    ];
+
+    if (actionOfferPhrases.some(phrase => lowerResponse.includes(phrase))) {
+      return false; // Action offer, not clarification
+    }
+
+    // If we get here, it's a real clarifying question
+    return true;
   }
 
   /**
@@ -146,6 +195,8 @@ export class CalendarHandler {
   private containsCalendarKeywords(response: string): boolean {
     const calendarKeywords = [
       'schedule a call',
+      'schedule that call',
+      'schedule the call',
       'call the employee',
       'phone call',
       'schedule a meeting',
@@ -155,6 +206,10 @@ export class CalendarHandler {
       'i can schedule',
       'check your calendar',
       'find available times',
+      'you should call',
+      'you need to call',
+      'make a second call',
+      'schedule that',
     ];
 
     const lowerResponse = response.toLowerCase();

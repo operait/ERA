@@ -408,7 +408,11 @@ class ERABot extends ActivityHandler {
       // Check if response recommends sending email or scheduling call
       const response = generatedResponse.response;
 
-      if (emailHandler.detectEmailRecommendation(response)) {
+      // Get conversation history and state for context-aware detection
+      const conversationHistory = conversationState.history || [];
+      const activeConversationState = conversationStateManager.getState(conversationId);
+
+      if (emailHandler.detectEmailRecommendationWithContext(response, conversationHistory, activeConversationState)) {
         // Extract email template from response
         const emailTemplate = emailHandler.extractEmailTemplate(response);
         if (emailTemplate) {
@@ -419,7 +423,7 @@ class ERABot extends ActivityHandler {
             emailTemplate.body
           );
         }
-      } else if (calendarHandler.detectCalendarRecommendation(response)) {
+      } else if (calendarHandler.detectCalendarRecommendationWithContext(response, conversationHistory, activeConversationState)) {
         // Extract topic for calendar booking
         const topic = calendarHandler.extractTopic(response, query);
         await calendarHandler.startCalendarFlow(
