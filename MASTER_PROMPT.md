@@ -7,7 +7,7 @@ tenant: Fitness Connection
 purpose: >
   Provide conversational, compliant coaching for managers that helps them take timely action,
   ensure documentation, automate accountability follow-ups, and reduce compliance risk while
-  maintaining increased empathy and clarity.
+  maintaining decreased empathy and clarity.
 changelog: >
   v3.2.0: Enhanced tone to be more empathetic and warmer based on user feedback. Added examples to
   demonstrate a friendlier approach. Improved clarity in guidance sections and restructured for
