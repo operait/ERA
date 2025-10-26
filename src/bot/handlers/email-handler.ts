@@ -6,11 +6,12 @@
 import { TurnContext, MessageFactory } from 'botbuilder';
 import { emailComposer } from '../../services/email-composer';
 import { conversationStateManager } from '../../services/conversation-state';
-import type { EmailConversationState } from '../../services/conversation-state';
+import type { EmailConversationState, ConversationState } from '../../services/conversation-state';
 
 export class EmailHandler {
   /**
    * Detect if response recommends sending an email
+   * @deprecated Use detectEmailRecommendationWithContext for context-aware detection
    */
   detectEmailRecommendation(response: string): boolean {
     const emailKeywords = [
@@ -21,6 +22,118 @@ export class EmailHandler {
       'email template',
       'follow up via email',
       'send them an email',
+    ];
+
+    const lowerResponse = response.toLowerCase();
+    return emailKeywords.some(keyword => lowerResponse.includes(keyword));
+  }
+
+  /**
+   * Context-aware email detection
+   * Prevents premature triggers during clarification phase
+   * Based on: specs/CONTEXT_AWARE_ACTIONS.md
+   */
+  detectEmailRecommendationWithContext(
+    response: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+    conversationState: ConversationState | null
+  ): boolean {
+    // Step 1: State guard - don't trigger if already in email flow
+    if (conversationState?.type === 'email') {
+      return false;
+    }
+
+    // Step 2: Clarification detection - don't trigger if ERA is asking questions
+    if (this.containsClarifyingQuestions(response)) {
+      return false;
+    }
+
+    // Step 3: Conversation depth check - require minimum turns
+    if (conversationHistory.length < 2) {
+      return false;
+    }
+
+    // Step 4: Context gathering verification - ensure manager answered ERA's questions
+    if (!this.isContextGathered(conversationHistory)) {
+      return false;
+    }
+
+    // Step 5: Keyword matching - final check
+    return this.containsEmailKeywords(response);
+  }
+
+  /**
+   * Check if response contains clarifying questions
+   * Returns true if ERA is still gathering context
+   */
+  private containsClarifyingQuestions(response: string): boolean {
+    // Check for question marks (strong signal of clarification)
+    const hasQuestions = response.includes('?');
+
+    // Check for clarification phrases
+    const clarificationPhrases = [
+      'just to make sure',
+      'just to confirm',
+      'can you clarify',
+      'need to know',
+      'could you provide',
+      'what about',
+      'have you',
+      'did you',
+      'were these',
+      'was this',
+      'to confirm',
+      'what type',
+      'which policy',
+    ];
+
+    const lowerResponse = response.toLowerCase();
+    const hasClarificationPhrases = clarificationPhrases.some(
+      phrase => lowerResponse.includes(phrase)
+    );
+
+    return hasQuestions || hasClarificationPhrases;
+  }
+
+  /**
+   * Check if context has been gathered from manager
+   * Returns true if manager has answered ERA's questions
+   */
+  private isContextGathered(
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): boolean {
+    // Find last ERA question
+    let lastERAQuestionIndex = -1;
+    for (let i = conversationHistory.length - 1; i >= 0; i--) {
+      if (conversationHistory[i].role === 'assistant' &&
+          conversationHistory[i].content.includes('?')) {
+        lastERAQuestionIndex = i;
+        break;
+      }
+    }
+
+    // If ERA never asked questions, context is gathered
+    if (lastERAQuestionIndex === -1) {
+      return true;
+    }
+
+    // Check if user responded after ERA's question
+    return conversationHistory.length > lastERAQuestionIndex + 1;
+  }
+
+  /**
+   * Check if response contains email action keywords
+   */
+  private containsEmailKeywords(response: string): boolean {
+    const emailKeywords = [
+      'send an email',
+      'email the employee',
+      'written warning via email',
+      'send a written',
+      'email template',
+      'would you like me to draft',
+      'i can draft',
+      'draft an email',
     ];
 
     const lowerResponse = response.toLowerCase();
