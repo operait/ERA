@@ -191,7 +191,7 @@ class ERABot extends ActivityHandler {
         return;
       }
 
-      if (userQuery.toLowerCase().startsWith('/optimize')) {
+      if (userQuery.toLowerCase().startsWith('!optimize')) {
         const { handleOptimizeCommand } = await import('./handlers/prompt-tuning');
         const autoMerge = userQuery.toLowerCase().includes('--auto-merge');
         await handleOptimizeCommand(context, autoMerge);

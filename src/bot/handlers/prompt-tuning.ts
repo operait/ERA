@@ -431,7 +431,7 @@ Ready to test! Ask me an HR question.`;
 }
 
 /**
- * Handle /optimize command
+ * Handle !optimize command
  */
 export async function handleOptimizeCommand(
   context: TurnContext,
@@ -522,7 +522,7 @@ ${csv}
 </details>
 
 ---
-🤖 Optimized automatically by ERA \`/optimize\` command using GPT-4`;
+🤖 Optimized automatically by ERA \`!optimize\` command using GPT-4`;
 
     // Create PR via GitHub API
     const pr = await github.createOptimizationPR(
