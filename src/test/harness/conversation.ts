@@ -231,14 +231,71 @@ class ConversationTestHarness {
 
     console.log(''); // Blank line before processing
 
-    // Show typing indicator
-    process.stdout.write('🔍 Searching...');
-
     // Add to history
     this.history.push({ role: 'user', content: query });
 
-    // Get search context
-    const searchContext = await this.retriever.getHRContext(query);
+    // Check if this is a follow-up in an existing conversation
+    const isFollowUp = this.history.length > 2; // At least user + assistant + user
+
+    // Check if the last assistant message was asking a CLARIFYING question
+    const lastAssistantMessage = isFollowUp && this.history.length >= 2
+      ? this.history[this.history.length - 2]?.content || ''
+      : '';
+
+    // Only treat as "answering question" if:
+    // 1. Last message was from assistant
+    // 2. Contains a question mark
+    // 3. Is NOT a greeting question
+    const isGreetingQuestion = lastAssistantMessage.includes('What HR situation can I help') ||
+                                lastAssistantMessage.includes('How can I help you') ||
+                                lastAssistantMessage.includes('What can I help you with') ||
+                                lastAssistantMessage.includes('I\'m here to help');
+
+    const isAnsweringQuestion = isFollowUp &&
+      lastAssistantMessage.includes('?') &&
+      !isGreetingQuestion &&
+      this.history[this.history.length - 2]?.role === 'assistant';
+
+    // Show typing indicator
+    process.stdout.write('🔍 Searching...');
+
+    // Retrieve relevant context
+    let searchContext;
+
+    if (isAnsweringQuestion) {
+      // This is an answer to ERA's question - use the FIRST NON-GREETING user message (original HR query)
+      const previousUserMessages = this.history.filter(m => m.role === 'user');
+
+      // Find the first non-greeting user message (the actual HR query)
+      let originalQuery = query;
+      for (const msg of previousUserMessages) {
+        if (!this.isGreeting(msg.content)) {
+          originalQuery = msg.content;
+          break;
+        }
+      }
+
+      if (this.debugMode) {
+        console.log(`\n[DEBUG] User is answering ERA's question. Using original query for search: "${originalQuery}"`);
+      }
+      searchContext = await this.retriever.getHRContext(originalQuery);
+    } else {
+      // This is a new query or regular follow-up
+      searchContext = await this.retriever.getHRContext(query);
+
+      // For regular follow-ups with no/poor results, fall back to original question
+      if (isFollowUp && searchContext.results.length === 0) {
+        const previousUserMessages = this.history.filter(m => m.role === 'user');
+        if (previousUserMessages.length > 1) {
+          const originalQuery = previousUserMessages[0].content;
+          if (this.debugMode) {
+            console.log(`\n[DEBUG] Follow-up with no results. Searching with original question: "${originalQuery}"`);
+          }
+          searchContext = await this.retriever.getHRContext(originalQuery);
+        }
+      }
+    }
+
     this.lastSearchContext = searchContext;
 
     const searchTime = Date.now() - startTime;
@@ -292,6 +349,39 @@ class ConversationTestHarness {
     }
 
     console.log(''); // Blank line after response
+  }
+
+  /**
+   * Check if message is a greeting
+   */
+  private isGreeting(query: string): boolean {
+    const lowerQuery = query.toLowerCase().trim();
+    const greetings = [
+      'hi',
+      'hello',
+      'hey',
+      'hi there',
+      'hello there',
+      'hey there',
+      'hi era',
+      'hello era',
+      'hey era',
+      'good morning',
+      'good afternoon',
+      'good evening',
+      'howdy',
+      'greetings',
+      'what\'s up',
+      'whats up',
+      'sup'
+    ];
+
+    // Remove punctuation for matching
+    const queryNoPunctuation = lowerQuery.replace(/[!?.]/g, '').trim();
+
+    // STRICT matching: Only treat as greeting if exact match
+    return greetings.includes(queryNoPunctuation) ||
+           greetings.some(g => queryNoPunctuation === g);
   }
 
   private showSessionSummary(): void {
