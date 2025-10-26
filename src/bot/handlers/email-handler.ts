@@ -254,7 +254,7 @@ export class EmailHandler {
     context: TurnContext,
     conversationId: string,
     employeeName: string,
-    state: EmailConversationState
+    _state: EmailConversationState
   ): Promise<boolean> {
     conversationStateManager.updateEmailState(conversationId, {
       recipientName: employeeName.trim(),
@@ -287,9 +287,8 @@ export class EmailHandler {
       return true;
     }
 
-    // Get manager name from context
+    // Get manager name from context for email variables
     const managerName = context.activity.from?.name || 'Manager';
-    const managerFirstName = managerName.split(' ')[0];
 
     // Update state with email and pre-fill known variables
     const knownVariables: Record<string, string> = {
@@ -309,8 +308,8 @@ export class EmailHandler {
     };
 
     // Convert [Bracket] style variables to {{bracket}} style
-    let normalizedSubject = this.normalizeBracketVariables(state.subject || '');
-    let normalizedBody = this.normalizeBracketVariables(state.body || '');
+    const normalizedSubject = this.normalizeBracketVariables(state.subject || '');
+    const normalizedBody = this.normalizeBracketVariables(state.body || '');
 
     conversationStateManager.updateEmailState(conversationId, {
       recipientEmail: email,

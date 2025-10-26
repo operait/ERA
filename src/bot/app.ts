@@ -114,7 +114,7 @@ class ERABot extends ActivityHandler {
 
       // Get manager email and ID - try to fetch from Teams profile
       let managerEmail = 'unknown@fitnessconnection.com';
-      let managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
+      const managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
 
       try {
         // Try to get the member's profile from Teams using TeamsInfo
@@ -354,7 +354,7 @@ class ERABot extends ActivityHandler {
 
       // Check if there's completed calendar context to include
       const calendarState = conversationStateManager.getState(conversationId);
-      let enrichedHistory = [...conversationState.history];
+      const enrichedHistory = [...conversationState.history];
 
       if (calendarState && calendarState.type === 'calendar' && calendarState.step === 'completed') {
         // Add calendar context as a system message for Claude's reference
