@@ -139,10 +139,24 @@ export async function storeTurn(
     return null;
   }
 
+  // Get current turn count for this session
+  const { count, error: countError } = await supabase
+    .from('tuning_conversation_turns')
+    .select('*', { count: 'exact', head: true })
+    .eq('session_id', session.id);
+
+  if (countError) {
+    console.error('Error counting turns:', countError);
+    return null;
+  }
+
+  const turnNumber = (count || 0) + 1;
+
   const { data: turn, error } = await supabase
     .from('tuning_conversation_turns')
     .insert({
       session_id: session.id,
+      turn_number: turnNumber,
       user_message: userMessage,
       era_response: eraResponse,
       metadata: metadata || {}
