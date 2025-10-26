@@ -1,0 +1,69 @@
+name: ERA CI
+
+on:
+  pull_request:
+    branches: [prompt-tuning, features, main]
+  push:
+    branches: [prompt-tuning, features, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type checking
+        run: npm run typecheck
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+        env:
+          # These are optional for tests - most tests are unit tests that don't need real API access
+          # Integration tests that need Supabase will be skipped if not available
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Build
+        run: npm run build
+
+      - name: Comment on PR if tests fail
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ **CI Failed** - Tests, linting, or build failed.\n\nReview the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.\n\n**Common fixes:**\n- Run `npm run typecheck` locally to fix type errors\n- Run `npm run lint` locally to fix linting issues\n- Run `npm test` locally to ensure all tests pass\n- Run `npm run build` to ensure build succeeds'
+            })
+
+      - name: Comment on PR if tests pass
+        if: success() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ **CI Passed** - All tests, type checking, linting, and build succeeded!\n\nThis PR is ready for review and merge.'
+            })
