@@ -87,7 +87,39 @@ Policy documents should be in JSONL format in the `./data` directory:
 ## New Features
 - **Email Sending**: ERA detects when to send emails and guides managers through template filling and sending
 - **Calendar Booking**: ERA checks manager availability and books employee calls automatically
+- **Context-Aware Actions** (v3.4.0+): Smart detection prevents premature calendar/email triggering during clarification phase
 - See FEATURE_SUMMARY.md for detailed examples and workflows
+
+## Context-Aware Action Detection (v3.4.0)
+ERA now uses intelligent multi-factor analysis to determine WHEN to offer calendar booking or email sending:
+
+### The Problem (Fixed)
+Previously, ERA would trigger calendar/email actions during clarification questions:
+```
+User: "My employee didn't show up for 3 days"
+ERA: "Have you tried calling them?" → ❌ Calendar triggered too early
+```
+
+### The Solution
+5-step context-aware detection algorithm:
+1. **State Guard**: Don't re-trigger if already in a flow
+2. **Clarification Detection**: Block if ERA is asking questions
+3. **Conversation Depth**: Require minimum 2 turns
+4. **Context Verification**: Ensure manager answered ERA's questions
+5. **Keyword Matching**: Final check for action keywords
+
+### Result
+```
+User: "My employee didn't show up for 3 days"
+ERA: "Have you tried calling them?" → ⏸️  No trigger (clarifying)
+User: "I tried once but no answer"
+ERA: "Would you like me to schedule a call?" → ✅ Trigger (context gathered)
+```
+
+**Files:** `src/bot/handlers/calendar-handler.ts`, `email-handler.ts`
+**Spec:** `specs/CONTEXT_AWARE_ACTIONS.md`
+**Tests:** `src/bot/handlers/__tests__/context-aware-*.test.ts` (54 tests)
+**Manual Testing:** See `MANUAL_TESTING.md`
 
 ## Success Criteria
 - Semantic search retrieves relevant policy sections (>0.75 similarity)
