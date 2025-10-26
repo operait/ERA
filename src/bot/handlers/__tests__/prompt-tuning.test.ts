@@ -11,7 +11,12 @@
 
 import { supabase } from '../../../lib/supabase';
 
-describe('Prompt Tuning Workflow', () => {
+// Skip these integration tests if Supabase env vars are not available (e.g., in CI)
+const describeIfSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? describe
+  : describe.skip;
+
+describeIfSupabase('Prompt Tuning Workflow', () => {
   // Test session IDs for cleanup
   const testSessionIds: string[] = [];
 
