@@ -134,6 +134,128 @@ export interface Database {
           response_time_ms?: number | null;
         };
       };
+      prompt_tuning_sessions: {
+        Row: {
+          id: string;
+          session_start: string;
+          session_end: string | null;
+          master_prompt_version: string | null;
+          branch_name: string;
+          total_turns: number;
+          total_improvements: number;
+          tester_id: string | null;
+          tester_email: string | null;
+          tester_name: string | null;
+          metadata: Record<string, any>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_start?: string;
+          session_end?: string | null;
+          master_prompt_version?: string | null;
+          branch_name?: string;
+          total_turns?: number;
+          total_improvements?: number;
+          tester_id?: string | null;
+          tester_email?: string | null;
+          tester_name?: string | null;
+          metadata?: Record<string, any>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_start?: string;
+          session_end?: string | null;
+          master_prompt_version?: string | null;
+          branch_name?: string;
+          total_turns?: number;
+          total_improvements?: number;
+          tester_id?: string | null;
+          tester_email?: string | null;
+          tester_name?: string | null;
+          metadata?: Record<string, any>;
+          updated_at?: string;
+        };
+      };
+      tuning_conversation_turns: {
+        Row: {
+          id: string;
+          session_id: string;
+          turn_number: number;
+          user_message: string;
+          era_response: string;
+          timestamp: string;
+          processing_time_ms: number | null;
+          search_results: any | null;
+          avg_similarity: number | null;
+          total_chunks: number | null;
+          confidence_score: number | null;
+          template_used: string | null;
+          metrics: Record<string, any>;
+          metadata: Record<string, any>;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          turn_number: number;
+          user_message: string;
+          era_response: string;
+          timestamp?: string;
+          processing_time_ms?: number | null;
+          search_results?: any | null;
+          avg_similarity?: number | null;
+          total_chunks?: number | null;
+          confidence_score?: number | null;
+          template_used?: string | null;
+          metrics?: Record<string, any>;
+          metadata?: Record<string, any>;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          turn_number?: number;
+          user_message?: string;
+          era_response?: string;
+          timestamp?: string;
+          processing_time_ms?: number | null;
+          search_results?: any | null;
+          avg_similarity?: number | null;
+          total_chunks?: number | null;
+          confidence_score?: number | null;
+          template_used?: string | null;
+          metrics?: Record<string, any>;
+          metadata?: Record<string, any>;
+        };
+      };
+      tuning_improvements: {
+        Row: {
+          id: string;
+          turn_id: string;
+          improvement_note: string;
+          category: string | null;
+          timestamp: string;
+          metadata: Record<string, any>;
+        };
+        Insert: {
+          id?: string;
+          turn_id: string;
+          improvement_note: string;
+          category?: string | null;
+          timestamp?: string;
+          metadata?: Record<string, any>;
+        };
+        Update: {
+          id?: string;
+          turn_id?: string;
+          improvement_note?: string;
+          category?: string | null;
+          timestamp?: string;
+          metadata?: Record<string, any>;
+        };
+      };
     };
   };
 }

@@ -13,6 +13,7 @@
     "check-data": "node scripts/check-data.js",
     "setup": "node scripts/setup.js",
     "test": "jest",
+    "test:conversation": "tsx src/test/harness/conversation.ts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "logs": "node scripts/render-logs.js --limit=100",

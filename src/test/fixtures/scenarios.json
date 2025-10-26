@@ -1,0 +1,109 @@
+{
+  "scenarios": [
+    {
+      "id": "no-show-3-days",
+      "name": "Employee No-Show 3 Consecutive Days",
+      "category": "attendance",
+      "initialQuery": "My employee didn't show up for 3 days in a row",
+      "isActive": true,
+      "expectedClarificationQuestions": [
+        "Have you tried reaching out",
+        "Were these consecutive"
+      ],
+      "followUps": [
+        {
+          "userMessage": "I tried calling once but they didn't answer",
+          "context": "Manager made one contact attempt",
+          "expectedActions": ["call", "document"],
+          "expectedRecommendations": ["second call attempt", "document each attempt"]
+        },
+        {
+          "userMessage": "Yes, three consecutive days",
+          "context": "Confirming consecutive absences",
+          "expectedActions": ["call", "escalate"],
+          "expectedRecommendations": ["call employee", "document pattern"]
+        }
+      ]
+    },
+    {
+      "id": "tardiness-issue",
+      "name": "Repeated Tardiness",
+      "category": "attendance",
+      "initialQuery": "My employee has been late 5 times this month",
+      "isActive": true,
+      "expectedClarificationQuestions": [
+        "Have you talked to them",
+        "How late"
+      ],
+      "followUps": [
+        {
+          "userMessage": "I haven't talked to them about it yet",
+          "context": "Manager has not addressed issue",
+          "expectedActions": ["schedule", "document"],
+          "expectedRecommendations": ["schedule a one-on-one", "document the pattern"]
+        },
+        {
+          "userMessage": "They're usually 10-15 minutes late",
+          "context": "Tardiness pattern details",
+          "expectedActions": ["conversation", "document"],
+          "expectedRecommendations": ["discuss with employee", "create improvement plan"]
+        }
+      ]
+    },
+    {
+      "id": "medical-leave",
+      "name": "Employee Requesting Medical Leave",
+      "category": "leave",
+      "initialQuery": "My employee says they need medical leave for surgery",
+      "isActive": true,
+      "expectedClarificationQuestions": [
+        "How long",
+        "provided documentation"
+      ],
+      "followUps": [
+        {
+          "userMessage": "They mentioned it will be 6 weeks",
+          "context": "Extended medical leave",
+          "expectedActions": ["escalate", "document"],
+          "expectedRecommendations": ["contact HR", "FMLA process"]
+        },
+        {
+          "userMessage": "No, they haven't provided documentation yet",
+          "context": "Missing medical documentation",
+          "expectedActions": ["request", "escalate"],
+          "expectedRecommendations": ["request documentation", "notify HR"]
+        }
+      ]
+    },
+    {
+      "id": "hypothetical-policy",
+      "name": "Hypothetical Policy Question",
+      "category": "policy",
+      "initialQuery": "What should I do if an employee doesn't show up for 3 days?",
+      "isActive": false,
+      "expectedClarificationQuestions": [],
+      "expectedImmediateGuidance": true,
+      "expectedSections": ["policy", "steps", "escalation"],
+      "followUps": []
+    },
+    {
+      "id": "performance-issue",
+      "name": "Performance Issues",
+      "category": "performance",
+      "initialQuery": "My team member isn't meeting sales targets",
+      "isActive": true,
+      "expectedClarificationQuestions": [
+        "How long",
+        "Have you discussed"
+      ],
+      "followUps": [
+        {
+          "userMessage": "It's been 3 months and I haven't talked to them yet",
+          "context": "Extended performance issue, no conversation",
+          "expectedActions": ["schedule", "document"],
+          "expectedRecommendations": ["schedule performance discussion", "set improvement goals"]
+        }
+      ]
+    }
+  ]
+}

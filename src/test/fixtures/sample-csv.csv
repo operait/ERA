@@ -1,0 +1,50 @@
+Turn,User Message,ERA Response,Improvement Notes,Category,Timestamp
+1,"My employee didn't show up for 3 days","Got it — that's definitely something we need to address right away.
+
+Just to make sure I have the full picture:
+- Have you tried reaching out to them yet (phone, text, or email)?
+- Were these three consecutive scheduled shifts?","Should ask clarifying questions first before providing any guidance","content","2025-10-24 10:00:00"
+1,"My employee didn't show up for 3 days","Got it — that's definitely something we need to address right away.
+
+Just to make sure I have the full picture:
+- Have you tried reaching out to them yet (phone, text, or email)?
+- Were these three consecutive scheduled shifts?","Tone is too formal, should be more conversational","tone","2025-10-24 10:00:15"
+2,"I called once today","Thanks for the context. Since you've already made one attempt, here's what to do next:
+
+**Immediate Steps:**
+1. Make a second call attempt today and document it
+2. If still no response, send a written communication documenting the absence
+3. Document each attempt in your records
+
+Since you need to call the employee to discuss this serious attendance issue, would you like me to schedule that call for you? I'll check your calendar and find available times.","Good response, includes clear next steps","","2025-10-24 10:01:00"
+2,"I called once today","Thanks for the context. Since you've already made one attempt, here's what to do next:
+
+**Immediate Steps:**
+1. Make a second call attempt today and document it
+2. If still no response, send a written communication documenting the absence
+3. Document each attempt in your records
+
+Since you need to call the employee to discuss this serious attendance issue, would you like me to schedule that call for you? I'll check your calendar and find available times.","Should emphasize urgency more clearly","content","2025-10-24 10:01:30"
+3,"Yes, three consecutive days","Perfect — three consecutive no-shows is a serious attendance violation under our policy.
+
+Here's the critical next step: You need to call the employee immediately to determine if there's an emergency or qualifying circumstance (medical, bereavement, etc.).
+
+Would you like me to help schedule that call? I can check your calendar for the next available time.","Missing policy citation reference","citation","2025-10-24 10:02:00"
+4,"No thanks, I'll call them myself","Sounds good! Please make sure to document:
+1. Date and time of your call
+2. What was discussed
+3. Employee's explanation for the absences
+4. Next steps agreed upon
+
+Let me know how the call goes, and I can help with follow-up actions like drafting a written warning if needed.","Response is clear and helpful","","2025-10-24 10:02:45"
+5,"I called them and they said their dog died","Got it — that's a difficult situation. Bereavement (including pet bereavement in some cases) may qualify for leave, but company policy varies.
+
+Here's what to do next:
+
+**Immediate Actions:**
+1. Express condolences and show empathy
+2. Escalate to HR to confirm bereavement policy coverage
+3. Document the conversation and the employee's explanation
+4. Ask HR about return-to-work expectations
+
+This is an HR-level decision. Would you like me to help draft the email to HR?","Should mention that pet bereavement might not be covered","clarity","2025-10-24 10:03:30"

@@ -5,6 +5,7 @@ import { ResponseGenerator } from '../templates/generator';
 import { emailHandler } from './handlers/email-handler';
 import { calendarHandler } from './handlers/calendar-handler';
 import { conversationStateManager } from '../services/conversation-state';
+import { handleImproveCommand, handlePrintCommand, handleResetCommand, storeTurn } from './handlers/prompt-tuning';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -168,11 +169,25 @@ class ERABot extends ActivityHandler {
 
       if (userQuery.toLowerCase().startsWith('!reset') || userQuery.toLowerCase().startsWith('!restart')) {
         await this.handleReset(context, conversationId, firstName);
+        // Also handle prompt tuning session reset
+        await handleResetCommand(context);
         return;
       }
 
       if (userQuery.toLowerCase().startsWith('!sources')) {
         await this.handleSourcesCommand(context, conversationId);
+        return;
+      }
+
+      // Prompt tuning commands
+      if (userQuery.toLowerCase().startsWith('!improve ')) {
+        const feedbackText = userQuery.substring('!improve '.length).trim();
+        await handleImproveCommand(context, feedbackText);
+        return;
+      }
+
+      if (userQuery.toLowerCase().startsWith('!print')) {
+        await handlePrintCommand(context);
         return;
       }
 
@@ -368,6 +383,14 @@ class ERABot extends ActivityHandler {
 
       // Store search context for !sources command
       conversationState.lastSearchContext = searchContext;
+
+      // Store turn in prompt tuning database
+      await storeTurn(context, query, generatedResponse.response, {
+        processingTime,
+        searchResultsCount: searchContext.results.length,
+        avgSimilarity: searchContext.avgSimilarity,
+        categories: searchContext.categories
+      });
 
       // Check if response recommends sending email or scheduling call
       const response = generatedResponse.response;
