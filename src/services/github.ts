@@ -143,6 +143,25 @@ export class GitHubService {
   }
 
   /**
+   * Add reviewers to a pull request
+   */
+  async requestReviewers(prNumber: number, reviewers: string[]): Promise<void> {
+    try {
+      await this.octokit.pulls.requestReviewers({
+        owner: this.owner,
+        repo: this.repo,
+        pull_number: prNumber,
+        reviewers
+      });
+
+      console.log(`✅ Added reviewers to PR #${prNumber}: ${reviewers.join(', ')}`);
+    } catch (error: any) {
+      console.warn(`⚠️ Failed to add reviewers to PR #${prNumber}: ${error.message}`);
+      // Don't throw - PR is still created successfully
+    }
+  }
+
+  /**
    * Auto-merge a pull request
    */
   async mergePullRequest(prNumber: number): Promise<boolean> {
@@ -192,6 +211,9 @@ export class GitHubService {
 
     // Create PR
     const pr = await this.createPullRequest(branchName, prTitle, prBody);
+
+    // Add Megan as reviewer
+    await this.requestReviewers(pr.number, ['megan-operaithr']);
 
     // Auto-merge if requested
     if (autoMerge) {
