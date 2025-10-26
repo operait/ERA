@@ -6,6 +6,7 @@ import { emailHandler } from './handlers/email-handler';
 import { calendarHandler } from './handlers/calendar-handler';
 import { conversationStateManager } from '../services/conversation-state';
 import { handleImproveCommand, handlePrintCommand, handleResetCommand, storeTurn } from './handlers/prompt-tuning';
+import { isGreeting, resolveQueryForSearch, shouldFallbackToOriginalQuery } from '../lib/conversation-utils';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -244,7 +245,7 @@ class ERABot extends ActivityHandler {
       }
 
       // Detect greetings (hi, hello, hey, etc.)
-      if (this.isGreeting(userQuery)) {
+      if (isGreeting(userQuery)) {
         await this.handleGreeting(context, conversationId, firstName);
         return;
       }
@@ -280,63 +281,26 @@ class ERABot extends ActivityHandler {
       // Add user message to history
       this.addToHistory(conversationId, 'user', query);
 
-      // Check if this is a follow-up in an existing conversation
-      const isFollowUp = conversationState.history.length > 1;
+      // Use shared conversation logic to determine which query to use for RAG search
+      const queryResolution = resolveQueryForSearch(query, conversationState.history);
 
-      // Check if the last assistant message was asking a CLARIFYING question (not a greeting)
-      const lastAssistantMessage = isFollowUp
-        ? conversationState.history[conversationState.history.length - 2]?.content || ''
-        : '';
+      console.log(`🔍 Conversation context: reason=${queryResolution.reason}, isFollowUp=${queryResolution.isFollowUp}, isAnsweringQuestion=${queryResolution.isAnsweringQuestion}`);
 
-      // Only treat as "answering question" if:
-      // 1. Last message was from assistant
-      // 2. Contains a question mark
-      // 3. Is NOT a greeting (greetings like "What can I help you with?" shouldn't count)
-      const isGreetingQuestion = lastAssistantMessage.includes('What HR situation can I help') ||
-                                  lastAssistantMessage.includes('How can I help you') ||
-                                  lastAssistantMessage.includes('What can I help you with') ||
-                                  lastAssistantMessage.includes('I\'m here to help');
+      // Retrieve relevant context using the resolved query
+      console.log(`🔍 Searching for: "${queryResolution.queryToUse}"`);
+      let searchContext = await this.retriever.getHRContext(queryResolution.queryToUse);
+      console.log(`📊 Search results: ${searchContext.results.length} results, avg similarity: ${searchContext.avgSimilarity.toFixed(3)}`);
 
-      const isAnsweringQuestion = isFollowUp &&
-        lastAssistantMessage.includes('?') &&
-        !isGreetingQuestion &&
-        conversationState.history[conversationState.history.length - 2]?.role === 'assistant';
+      // Check if we should fallback to original query for follow-ups with no results
+      const fallbackQuery = shouldFallbackToOriginalQuery(
+        searchContext.results.length > 0,
+        queryResolution,
+        conversationState.history
+      );
 
-      console.log(`🔍 Conversation context: isFollowUp=${isFollowUp}, isAnsweringQuestion=${isAnsweringQuestion}, isGreeting=${isGreetingQuestion}`);
-
-      // Retrieve relevant context
-      let searchContext;
-
-      if (isAnsweringQuestion) {
-        // This is an answer to ERA's question - use the FIRST NON-GREETING user message (original HR query)
-        const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
-
-        // Find the first non-greeting user message (the actual HR query)
-        let originalQuery = query;
-        for (const msg of previousUserMessages) {
-          if (!this.isGreeting(msg.content)) {
-            originalQuery = msg.content;
-            break;
-          }
-        }
-
-        console.log(`📌 User is answering ERA's question. Using original query for search: "${originalQuery}"`);
-        searchContext = await this.retriever.getHRContext(originalQuery);
-      } else {
-        // This is a new query or regular follow-up
-        console.log(`🔍 Searching for: "${query}"`);
-        searchContext = await this.retriever.getHRContext(query);
-        console.log(`📊 Search results: ${searchContext.results.length} results, avg similarity: ${searchContext.avgSimilarity.toFixed(3)}`);
-
-        // For regular follow-ups with no/poor results, fall back to original question
-        if (isFollowUp && searchContext.results.length === 0) {
-          const previousUserMessages = conversationState.history.filter(m => m.role === 'user');
-          if (previousUserMessages.length > 1) {
-            const originalQuery = previousUserMessages[0].content;
-            console.log(`Follow-up with no results. Searching with original question: "${originalQuery}"`);
-            searchContext = await this.retriever.getHRContext(originalQuery);
-          }
-        }
+      if (fallbackQuery) {
+        console.log(`Follow-up with no results. Searching with original question: "${fallbackQuery}"`);
+        searchContext = await this.retriever.getHRContext(fallbackQuery);
       }
 
       if (searchContext.results.length === 0) {
@@ -444,58 +408,6 @@ class ERABot extends ActivityHandler {
         'I\'m having trouble accessing the policy database right now. Please try again in a moment.'
       ));
     }
-  }
-
-  /**
-   * Check if message is a greeting
-   */
-  private isGreeting(query: string): boolean {
-    const lowerQuery = query.toLowerCase().trim();
-    const greetings = [
-      'hi',
-      'hello',
-      'hey',
-      'hi there',
-      'hello there',
-      'hey there',
-      'hi era',
-      'hello era',
-      'hey era',
-      'good morning',
-      'good afternoon',
-      'good evening',
-      'howdy',
-      'greetings',
-      'what\'s up',
-      'whats up',
-      'sup'
-    ];
-
-    // Remove punctuation for matching
-    const queryNoPunctuation = lowerQuery.replace(/[!?.]/g, '').trim();
-
-    // STRICT matching: Only treat as greeting if:
-    // 1. Exact match to a greeting phrase, OR
-    // 2. Starts with greeting AND is very short (10 chars or less) AND has no question words
-    const questionWords = ['what', 'how', 'when', 'where', 'why', 'who', 'which', 'should', 'can', 'could', 'would', 'do', 'does', 'is', 'are'];
-    const hasQuestionWord = questionWords.some(qw => queryNoPunctuation.includes(qw));
-
-    // If it contains a question word, it's NOT a greeting - it's a query
-    if (hasQuestionWord) {
-      return false;
-    }
-
-    // Check for exact greeting match
-    if (greetings.includes(queryNoPunctuation)) {
-      return true;
-    }
-
-    // Only allow very short messages (10 chars or less) starting with greetings
-    if (queryNoPunctuation.length <= 10 && greetings.some(g => queryNoPunctuation.startsWith(g))) {
-      return true;
-    }
-
-    return false;
   }
 
   /**
