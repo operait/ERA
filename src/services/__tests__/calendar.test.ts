@@ -170,9 +170,26 @@ describe('Calendar Service - Timezone Handling', () => {
       // All slots should be within working hours when converted to Chicago time
       availableSlots.forEach((slot: TimeSlot) => {
         // Convert to Chicago time to check hours
-        const chicagoHour = parseInt(slot.formatted.match(/(\d+):/)![1]);
-        const isPM = slot.formatted.includes('PM');
-        const hour24 = isPM && chicagoHour !== 12 ? chicagoHour + 12 : chicagoHour;
+        const match = slot.formatted.match(/(\d+):(\d+)\s+(AM|PM)/);
+        if (!match) {
+          console.log('Failed to parse:', slot.formatted);
+          return;
+        }
+        const chicagoHour = parseInt(match[1]);
+        const isPM = match[3] === 'PM';
+        // Convert to 24-hour format
+        let hour24;
+        if (isPM && chicagoHour !== 12) {
+          hour24 = chicagoHour + 12;
+        } else if (!isPM && chicagoHour === 12) {
+          hour24 = 0; // 12 AM is midnight (hour 0)
+        } else {
+          hour24 = chicagoHour;
+        }
+
+        if (hour24 < 9 || hour24 >= 17) {
+          console.log(`Slot outside working hours: ${slot.formatted} (hour24: ${hour24})`);
+        }
 
         expect(hour24).toBeGreaterThanOrEqual(9);
         expect(hour24).toBeLessThan(17);

@@ -24,6 +24,19 @@ jest.mock('../../lib/supabase', () => ({
 
 jest.mock('@anthropic-ai/sdk');
 
+// Create a mock that can be customized per test
+const mockOpenAICreate = jest.fn();
+
+jest.mock('openai', () => {
+  return jest.fn().mockImplementation(() => ({
+    chat: {
+      completions: {
+        create: mockOpenAICreate
+      }
+    }
+  }));
+});
+
 describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
   let responseGenerator: ResponseGenerator;
   let mockSearchContext: SearchContext;
@@ -63,11 +76,12 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
 
   describe('ACTIVE SITUATIONS - Should Ask Clarifying Questions', () => {
     test('Query with "my employee" should trigger clarification questions', async () => {
-      // Mock Claude response with clarifying questions
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Got it — that\'s definitely something we need to address right away.\n\nJust to make sure I have the full picture:\n- Have you tried reaching out to them yet (phone, text, or email)?\n- Were these three consecutive scheduled shifts?'
+      // Mock GPT-4 response with clarifying questions
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Got it — that\'s definitely something we need to address right away.\n\nJust to make sure I have the full picture:\n- Have you tried reaching out to them yet (phone, text, or email)?\n- Were these three consecutive scheduled shifts?'
+          }
         }]
       });
 
@@ -85,10 +99,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
     });
 
     test('Query with "My employee" (capitalized) should trigger clarification', async () => {
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Got it — that\'s a serious attendance issue.\n\nJust to make sure I have the full picture:\n- Have you tried calling or emailing them yet?'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Got it — that\'s a serious attendance issue.\n\nJust to make sure I have the full picture:\n- Have you tried calling or emailing them yet?'
+          }
         }]
       });
 
@@ -101,10 +116,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
     });
 
     test('Query with "our team member" should trigger clarification', async () => {
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'I understand — let me help you address this.\n\nFirst, have you tried reaching out to them?'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'I understand — let me help you address this.\n\nFirst, have you tried reaching out to them?'
+          }
         }]
       });
 
@@ -116,10 +132,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
     });
 
     test('Query with employee name should trigger clarification', async () => {
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Got it — three days is significant.\n\nHave you tried contacting John yet?'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Got it — three days is significant.\n\nHave you tried contacting John yet?'
+          }
         }]
       });
 
@@ -132,10 +149,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
 
     test('CRITICAL TEST (v3.1.3 fix): "What should I do if MY employee..." is ACTIVE', async () => {
       // This is the exact case that was failing before v3.1.3
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Got it — that\'s definitely something we need to address right away.\n\nJust to make sure I have the full picture:\n- Have you tried reaching out to them yet?'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Got it — that\'s definitely something we need to address right away.\n\nJust to make sure I have the full picture:\n- Have you tried reaching out to them yet?'
+          }
         }]
       });
 
@@ -147,19 +165,21 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
       expect(result.response).toContain('?');
       expect(result.response).not.toContain('Immediate Steps');
 
-      // Verify the system prompt sent to Claude includes the ACTIVE detection rule
-      const systemPrompt = mockAnthropicCreate.mock.calls[0][0].system;
-      expect(systemPrompt).toContain('ACTIVE SITUATION');
-      expect(systemPrompt).toContain('my');
+      // Verify the system prompt sent to GPT-4 includes the ACTIVE/HYPOTHETICAL rules
+      const callArgs = mockOpenAICreate.mock.calls[0][0];
+      const systemMessage = callArgs.messages.find((m: any) => m.role === 'system');
+      expect(systemMessage.content).toContain('ACTIVE SITUATIONS');
+      expect(systemMessage.content).toContain('Clarification Hierarchy');
     });
   });
 
   describe('HYPOTHETICAL SITUATIONS - Should Provide Full Guidance', () => {
     test('Query with "an employee" should provide full guidance', async () => {
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Good question — let me walk you through the process.\n\n**Immediate Steps:**\n1. Contact the employee\n2. Document the absence\n3. Follow progressive discipline policy'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Good question — let me walk you through the process.\n\n**Immediate Steps:**\n1. Contact the employee\n2. Document the absence\n3. Follow progressive discipline policy'
+          }
         }]
       });
 
@@ -174,10 +194,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
     });
 
     test('Query with "someone" should provide full guidance', async () => {
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Here\'s how to handle lateness issues:\n\n1. Document the pattern\n2. Schedule a conversation\n3. Create an improvement plan'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Here\'s how to handle lateness issues:\n\n1. Document the pattern\n2. Schedule a conversation\n3. Create an improvement plan'
+          }
         }]
       });
 
@@ -197,10 +218,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
         { role: 'user' as const, content: "I tried calling once but they didn't pick up. Three consecutive days." }
       ];
 
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Thanks for the context. Since you\'ve already made one attempt, the next step is to make a second call attempt today and document it.\n\nSince you need to call the employee to discuss this serious attendance issue, would you like me to schedule that call for you? I\'ll check your calendar and find available times.'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Thanks for the context. Since you\'ve already made one attempt, the next step is to make a second call attempt today and document it.\n\nSince you need to call the employee to discuss this serious attendance issue, would you like me to schedule that call for you? I\'ll check your calendar and find available times.'
+          }
         }]
       });
 
@@ -228,10 +250,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
         { role: 'user' as const, content: "I called once today" }
       ];
 
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Since you need to call the employee again, would you like me to schedule that call for you?'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Since you need to call the employee again, would you like me to schedule that call for you?'
+          }
         }]
       });
 
@@ -260,10 +283,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
         { role: 'user' as const, content: "I called them and they said they were sick" }
       ];
 
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Got it — thanks for following up with them. Since they mentioned being sick, we need to explore if this qualifies for medical leave.\n\n1. Ask if they need medical documentation\n2. Contact HR to discuss potential FMLA/medical leave\n\nWould you like me to help draft the email to HR about this?'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Got it — thanks for following up with them. Since they mentioned being sick, we need to explore if this qualifies for medical leave.\n\n1. Ask if they need medical documentation\n2. Contact HR to discuss potential FMLA/medical leave\n\nWould you like me to help draft the email to HR about this?'
+          }
         }]
       });
 
@@ -286,10 +310,11 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
         { role: 'assistant' as const, content: "Have you tried reaching out to them?" }
       ];
 
-      mockAnthropicCreate.mockResolvedValue({
-        content: [{
-          type: 'text',
-          text: 'Thanks for the info. Since you\'ve already called once, here\'s what to do next...'
+      mockOpenAICreate.mockResolvedValue({
+        choices: [{
+          message: {
+            content: 'Thanks for the info. Since you\'ve already called once, here\'s what to do next...'
+          }
         }]
       });
 
@@ -314,13 +339,13 @@ describe('MASTER_PROMPT.md Integration', () => {
   });
 
   test('System prompt should include ACTIVE/HYPOTHETICAL detection rules', async () => {
-    const mockCreate = jest.fn().mockResolvedValue({
-      content: [{ type: 'text', text: 'Test response' }]
+    mockOpenAICreate.mockResolvedValue({
+      choices: [{
+        message: {
+          content: 'Test response'
+        }
+      }]
     });
-
-    (Anthropic as jest.MockedClass<typeof Anthropic>).mockImplementation(() => ({
-      messages: { create: mockCreate }
-    } as any));
 
     const generator = new ResponseGenerator();
     const mockContext: SearchContext = {
@@ -343,13 +368,14 @@ describe('MASTER_PROMPT.md Integration', () => {
 
     await generator.generateResponse("My employee is late", mockContext);
 
-    const systemPrompt = mockCreate.mock.calls[0][0].system;
+    const callArgs = mockOpenAICreate.mock.calls[0][0];
+    const systemMessage = callArgs.messages.find((m: any) => m.role === 'system');
+    const systemPrompt = systemMessage.content;
 
-    // Verify v3.1.3 detection rules are in the system prompt
+    // Verify v4.0.0 structure is in the system prompt
     expect(systemPrompt).toContain('ACTIVE');
     expect(systemPrompt).toContain('HYPOTHETICAL');
-    expect(systemPrompt).toContain('my');
-    expect(systemPrompt).toContain('our');
-    expect(systemPrompt).toContain('Sequential Action Workflow');
+    expect(systemPrompt).toContain('Clarification Hierarchy');
+    expect(systemPrompt).toContain('Response Flow');
   });
 });

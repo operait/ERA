@@ -244,16 +244,19 @@ describe('Prompt Tuning Workflow', () => {
     });
 
     test('handles empty improvement note', async () => {
-      const { error } = await supabase
+      // Empty strings are allowed, but NULL is not
+      const { data, error } = await supabase
         .from('tuning_improvements')
         .insert({
           turn_id: turnId,
           improvement_note: ''
-        });
+        })
+        .select()
+        .single();
 
-      // Should fail because improvement_note is required (NOT NULL)
-      expect(error).toBeDefined();
-      expect(error?.message).toContain('null value');
+      // Should succeed - empty string is valid (though not ideal in practice)
+      expect(error).toBeNull();
+      expect(data?.improvement_note).toBe('');
     });
 
     test('handles very long improvement note', async () => {
