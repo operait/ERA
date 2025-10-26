@@ -132,6 +132,13 @@ class ConversationTestHarness {
         return;
       }
 
+      // Check if it's a greeting
+      if (isGreeting(query)) {
+        this.handleGreeting(query);
+        rl.prompt();
+        return;
+      }
+
       // Process user query
       await this.processQuery(query);
 
@@ -142,6 +149,23 @@ class ConversationTestHarness {
       this.showSessionSummary();
       process.exit(0);
     });
+  }
+
+  private handleGreeting(query: string): void {
+    const greetingResponses = [
+      'Hi Barry! 👋 I\'m ERA, your HR assistant. How can I help you today?',
+      'Hello Barry! Ready to help with any HR questions you have.',
+      'Hey Barry! What HR situation can I help you with?',
+      'Hi Barry! I\'m here to help with policies, procedures, and any HR guidance you need.'
+    ];
+
+    const response = greetingResponses[Math.floor(Math.random() * greetingResponses.length)];
+
+    // Add to history
+    this.history.push({ role: 'user', content: query });
+    this.history.push({ role: 'assistant', content: response });
+
+    console.log(`\n💬 ERA: ${response}\n`);
   }
 
   private handleReset(): void {
