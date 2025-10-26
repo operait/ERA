@@ -128,7 +128,7 @@ class ERABot extends ActivityHandler {
         console.warn(`Failed to fetch Teams member info: ${error}. Falling back to context properties.`);
 
         // Fallback: Try to get email from activity context
-        // @ts-expect-error - additional properties might not be in types but exist in Teams
+        // Additional properties might not be in types but exist in Teams
         const userPrincipalName = (context.activity.from as any)?.properties?.email ||
                                   (context.activity.from as any)?.email ||
                                   (context.activity.from as any)?.userPrincipalName;
