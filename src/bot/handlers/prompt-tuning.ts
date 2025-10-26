@@ -356,22 +356,30 @@ function csvRow(
   timestamp: string
 ): string {
   const escape = (str: string) => {
-    // Escape quotes and wrap in quotes if contains comma, quote, or newline
-    if (str.includes('"') || str.includes(',') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
+    // Always wrap in quotes for consistency and safety
+    // Replace internal quotes with double quotes (CSV escaping)
+    // Normalize newlines to spaces for better CSV compatibility
+    const normalized = str
+      .replace(/\n/g, ' ')  // Replace newlines with spaces
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
+      .replace(/"/g, '""')  // Escape quotes
+      .trim();
+    return `"${normalized}"`;
   };
 
-  const timestampFormatted = new Date(timestamp).toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  // Format timestamp without commas: YYYY-MM-DD HH:MM:SS
+  const timestampFormatted = new Date(timestamp)
+    .toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    })
+    .replace(/(\d+)\/(\d+)\/(\d+),?\s+(\d+:\d+:\d+)/, '$3-$1-$2 $4');
 
   return [
     turnNumber,
@@ -379,7 +387,7 @@ function csvRow(
     escape(eraResponse),
     escape(improvementNote),
     escape(category),
-    timestampFormatted
+    `"${timestampFormatted}"`
   ].join(',');
 }
 
