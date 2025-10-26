@@ -191,6 +191,13 @@ class ERABot extends ActivityHandler {
         return;
       }
 
+      if (userQuery.toLowerCase().startsWith('/optimize')) {
+        const { handleOptimizeCommand } = await import('./handlers/prompt-tuning');
+        const autoMerge = userQuery.toLowerCase().includes('--auto-merge');
+        await handleOptimizeCommand(context, autoMerge);
+        return;
+      }
+
       // Check if we're in an active email or calendar conversation
       if (conversationStateManager.isActive(conversationId)) {
         const conversationType = conversationStateManager.getType(conversationId);

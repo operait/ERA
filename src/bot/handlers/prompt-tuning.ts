@@ -429,3 +429,124 @@ Ready to test! Ask me an HR question.`;
 
   await context.sendActivity(message);
 }
+
+/**
+ * Handle /optimize command
+ */
+export async function handleOptimizeCommand(
+  context: TurnContext,
+  autoMerge: boolean = false
+): Promise<void> {
+  const conversationId = context.activity.conversation.id;
+  const sessionId = activeSessions.get(conversationId);
+
+  // Validate active session
+  if (!sessionId) {
+    await context.sendActivity('⚠️ No active testing session. Start a conversation first.');
+    return;
+  }
+
+  await context.sendActivity('⏳ Optimizing MASTER_PROMPT.md...');
+
+  try {
+    // Fetch session data
+    const { data: session, error: sessionError } = await supabase
+      .from('prompt_tuning_sessions')
+      .select()
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError || !session) {
+      await context.sendActivity('❌ Error fetching session data. Please contact Barry.');
+      return;
+    }
+
+    // Check for improvements
+    if (session.total_improvements === 0) {
+      await context.sendActivity('⚠️ No improvements in this session. Use `!improve` to add feedback before optimizing.');
+      return;
+    }
+
+    // Fetch turns with improvements
+    const { data: turns, error: turnsError } = await supabase
+      .from('tuning_conversation_turns')
+      .select('*, tuning_improvements(*)')
+      .eq('session_id', sessionId)
+      .order('turn_number', { ascending: true });
+
+    if (turnsError || !turns) {
+      await context.sendActivity('❌ Error fetching conversation data. Please contact Barry.');
+      return;
+    }
+
+    // Generate CSV
+    const csv = generateCSV(turns, session);
+
+    // Import optimizer and GitHub services
+    const { PromptOptimizer } = await import('../../services/prompt-optimizer');
+    const { GitHubService } = await import('../../services/github');
+
+    const optimizer = new PromptOptimizer();
+    const github = new GitHubService();
+
+    // Optimize prompt using GPT-4
+    const optimization = await optimizer.optimize(csv);
+
+    // Count improvements by category
+    const categoryCounts = optimizer.countImprovementsByCategory(csv);
+    const categoryBreakdown = Object.entries(categoryCounts)
+      .map(([cat, count]) => `- ${cat || 'general'}: ${count} improvement${count > 1 ? 's' : ''}`)
+      .join('\n');
+
+    // Build PR description
+    const prTitle = 'Optimize MASTER_PROMPT.md based on testing session';
+    const prBody = `## 📊 Session Summary
+- **Session ID**: ${session.id.substring(0, 8)}...
+- **Started**: ${new Date(session.session_start).toLocaleString('en-US', { timeZone: 'America/Chicago' })}
+- **Turns**: ${session.total_turns}
+- **Improvements**: ${session.total_improvements}
+
+## ✨ Key Changes
+${optimization.summary}
+
+## 📈 Improvement Breakdown
+${categoryBreakdown || '- No categorized improvements'}
+
+## 📋 Full Session Data
+<details>
+<summary>Click to expand CSV</summary>
+
+\`\`\`csv
+${csv}
+\`\`\`
+</details>
+
+---
+🤖 Optimized automatically by ERA \`/optimize\` command using GPT-4`;
+
+    // Create PR via GitHub API
+    const pr = await github.createOptimizationPR(
+      optimization.updatedPrompt,
+      prTitle,
+      prBody,
+      autoMerge
+    );
+
+    // Send success message
+    const autoMergeStatus = autoMerge ? ' (auto-merged)' : '';
+    const message = `✅ MASTER_PROMPT.md optimized${autoMergeStatus}!
+
+📊 Session: ${session.total_turns} turns, ${session.total_improvements} improvements
+🔀 Branch: ${pr.branch}
+📝 PR: #${pr.number}
+
+${autoMerge ? 'View changes:' : 'Review and merge:'}
+${pr.url}`;
+
+    await context.sendActivity(message);
+
+  } catch (error: any) {
+    console.error('Error in /optimize command:', error);
+    await context.sendActivity(`❌ Optimization failed: ${error.message}\n\nPlease contact Barry for assistance.`);
+  }
+}

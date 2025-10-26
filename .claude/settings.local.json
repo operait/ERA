@@ -7,7 +7,13 @@
       "Bash(npm test:*)",
       "Bash(node -e:*)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd prompt tuning workflow and test infrastructure - v3.3.0\n\nComplete implementation of Meg''s prompt optimization workflow and Barry''s\nlocal testing infrastructure.\n\n## New Features:\n\n### Phase 1-2: Database & Metrics Framework\n- Database migration with 3 tables for prompt tuning sessions\n- ResponseEvaluator class with 9 objective metrics\n- Composite scoring (40% objective, 60% subjective)\n- All 36 tests passing\n\n### Phase 3: Prompt Tuning Commands (Teams Bot)\n- !improve <feedback> - Attach improvement notes to responses\n- !print - Export session as CSV for Claude optimization\n- !reset - Start new testing session with session tracking\n- Auto-track turns, improvements, and metrics in database\n\n### Phase 4: Test Harness (Local Development)\n- npm run test:conversation - Interactive terminal chat with ERA\n- Debug mode with RAG results and quality metrics\n- Commands: !reset, !debug, !sources, !metrics, !quit\n\n### Infrastructure:\n- /optimize slash command for Claude Web Code\n- 8 comprehensive specification documents\n- Test fixtures and scenarios\n- TypeScript types for all new tables\n\n## Files Added:\n- specs/* - Complete specifications for all features\n- src/metrics/evaluator.ts - Quality metrics framework\n- src/bot/handlers/prompt-tuning.ts - Command handlers\n- src/test/harness/conversation.ts - Interactive test CLI\n- supabase/migrations/003_prompt_tuning_tables.sql - Database schema\n- .claude/commands/optimize.md - Custom slash command\n\n## Files Modified:\n- src/bot/app.ts - Integrated prompt tuning commands\n- src/lib/supabase.ts - Added TypeScript types for new tables\n- package.json - Added test:conversation script\n\n## Next Steps:\n1. Run database migration in Supabase\n2. Configure Render to deploy from ''prompt-tuning'' branch\n3. Test in Teams with !improve, !print commands\n4. Use npm run test:conversation for local development\n\nVersion: 3.3.0\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(npm run logs:tail:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

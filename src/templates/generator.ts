@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { SearchContext } from '../retrieval/search';
 import { Template } from '../types/index';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -26,13 +26,13 @@ export interface GeneratedResponse {
  */
 export class ResponseGenerator {
   private templateCache: Map<string, ResponseTemplate[]> = new Map();
-  private anthropic: Anthropic;
+  private openai: OpenAI;
   private masterPrompt: string;
 
   constructor() {
     this.loadTemplates();
-    this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
     });
     this.masterPrompt = this.loadMasterPrompt();
   }
@@ -105,7 +105,7 @@ IMPORTANT:
     managerFirstName?: string
   ): Promise<GeneratedResponse> {
     try {
-      // Use Claude to generate a conversational response
+      // Use GPT-4 to generate a conversational response
       const response = await this.generateClaudeResponse(query, searchContext, conversationHistory, managerFirstName);
 
       return {
@@ -144,10 +144,10 @@ IMPORTANT:
       }
     }
 
-    // DISABLE keyword-based clarification entirely - let Claude's master prompt handle this
+    // DISABLE keyword-based clarification entirely - let GPT-4's master prompt handle this
     // The master prompt already has sophisticated clarification logic built in
     // Having two layers of clarification causes ERA to ask questions when it shouldn't
-    console.log('⏭️ Skipping keyword-based clarification check - deferring to Claude master prompt');
+    console.log('⏭️ Skipping keyword-based clarification check - deferring to GPT-4 master prompt');
     return false;
 
     /* REMOVED: Keyword-based clarification that conflicted with master prompt
@@ -165,7 +165,7 @@ IMPORTANT:
   }
 
   /**
-   * Generate conversational response using Claude
+   * Generate conversational response using GPT-4
    */
   private async generateClaudeResponse(
     query: string,
@@ -175,7 +175,7 @@ IMPORTANT:
   ): Promise<string> {
     // CRITICAL: Check if we need clarification BEFORE generating response
     if (this.needsClarification(query, conversationHistory)) {
-      // Force a clarifying question without consulting Claude
+      // Force a clarifying question without consulting GPT-4
       const name = managerFirstName ? `, ${managerFirstName}` : '';
       return `Got it${name} — three consecutive no-shows is definitely something we need to address right away.\n\nJust to confirm — have you already tried reaching out to the employee at all, or is this the first time you're taking action on the missed shifts?`;
     }
@@ -226,17 +226,20 @@ Please provide guidance based on the policy documents above and follow the maste
     // No need to prepend additional instructions that could conflict
     const enhancedSystemPrompt = systemPrompt;
 
-    const message = await this.anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+    // Convert messages array for OpenAI format
+    const openaiMessages: Array<OpenAI.Chat.ChatCompletionMessageParam> = [
+      { role: 'system', content: enhancedSystemPrompt },
+      ...messages.map(msg => ({ role: msg.role, content: msg.content }))
+    ];
+
+    const completion = await this.openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
       max_tokens: 1024,
-      system: enhancedSystemPrompt,
-      messages
+      temperature: 0.7,
+      messages: openaiMessages
     });
 
-    const responseText = message.content
-      .filter((block) => block.type === 'text')
-      .map((block) => (block as { text: string }).text)
-      .join('\n');
+    const responseText = completion.choices[0].message.content || '';
 
     return responseText;
   }
