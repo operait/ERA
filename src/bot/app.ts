@@ -198,6 +198,12 @@ class ERABot extends ActivityHandler {
         return;
       }
 
+      if (userQuery.toLowerCase().startsWith('!help')) {
+        const { handleHelpCommand } = await import('./handlers/prompt-tuning');
+        await handleHelpCommand(context);
+        return;
+      }
+
       // Check if we're in an active email or calendar conversation
       if (conversationStateManager.isActive(conversationId)) {
         const conversationType = conversationStateManager.getType(conversationId);

@@ -550,3 +550,46 @@ ${pr.url}`;
     await context.sendActivity(`❌ Optimization failed: ${error.message}\n\nPlease contact Barry for assistance.`);
   }
 }
+
+/**
+ * Handle !help command
+ */
+export async function handleHelpCommand(context: TurnContext): Promise<void> {
+  const message = `📖 **Prompt Tuning Commands**
+
+**Available Commands:**
+• **!improve** \`<feedback>\` - Attach feedback to ERA's last response
+• **!print** - Export session as CSV for prompt tuning
+• **!optimize** - Auto-optimize MASTER_PROMPT.md and create PR
+• **!optimize --auto-merge** - Auto-optimize and auto-merge PR
+• **!reset** or **!restart** - Start new testing session
+• **!sources** - Show source documents from last response
+• **!help** - Show this help message
+
+**Improvement Categories:**
+Use categories to organize your feedback:
+
+• **tone** - Response personality and voice
+• **content** - Information accuracy and completeness
+• **citation** - Policy references and sources
+• **clarity** - Understandability and readability
+• **structure** - Response organization and formatting
+• **action** - Recommended steps and next actions
+
+**Examples:**
+\`\`\`
+!improve Should ask clarifying questions first
+!improve tone: Too formal, needs more empathy
+!improve citation: Missing policy reference for 3-day no-show
+\`\`\`
+
+**Workflow:**
+1. Chat with ERA normally
+2. Use \`!improve\` to add feedback after each response
+3. Use \`!optimize\` to auto-generate optimized prompt PR
+4. Review and merge PR on GitHub
+
+Need help? Contact Barry for support.`;
+
+  await context.sendActivity(message);
+}
