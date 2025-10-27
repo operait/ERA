@@ -84,7 +84,7 @@ export function chunkText(
  */
 function findSentenceBreak(text: string, start: number, maxEnd: number): number {
   const sentenceEnders = ['. ', '! ', '? ', '.\n', '!\n', '?\n'];
-  let bestBreak = maxEnd;
+  const bestBreak = maxEnd;
 
   for (let i = maxEnd - 1; i > start + 100; i--) {
     for (const ender of sentenceEnders) {

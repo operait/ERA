@@ -174,7 +174,7 @@ export class DocumentRetriever {
   private fuseSearchResults(contexts: SearchContext[]): SearchResult[] {
     const resultMap = new Map<string, { result: SearchResult; score: number }>();
 
-    contexts.forEach((context, contextIndex) => {
+    contexts.forEach((context, _contextIndex) => {
       context.results.forEach((result, rank) => {
         const key = `${result.document_id}-${result.chunk_id}`;
         const rrf_score = 1 / (rank + 1); // Reciprocal rank fusion score

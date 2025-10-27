@@ -7,7 +7,7 @@
  * - Misclassifies "What should I do if MY employee..." as HYPOTHETICAL
  */
 
-import { ResponseGenerator, GeneratedResponse } from '../generator';
+import { ResponseGenerator } from '../generator';
 import { SearchContext } from '../../retrieval/search';
 import Anthropic from '@anthropic-ai/sdk';
 

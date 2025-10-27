@@ -113,7 +113,7 @@ class ERABot extends ActivityHandler {
 
       // Get manager email and ID - try to fetch from Teams profile
       let managerEmail = 'unknown@fitnessconnection.com';
-      let managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
+      const managerId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
 
       try {
         // Try to get the member's profile from Teams using TeamsInfo
@@ -127,7 +127,7 @@ class ERABot extends ActivityHandler {
         console.warn(`Failed to fetch Teams member info: ${error}. Falling back to context properties.`);
 
         // Fallback: Try to get email from activity context
-        // @ts-ignore - additional properties might not be in types but exist in Teams
+        // @ts-expect-error - additional properties might not be in types but exist in Teams
         const userPrincipalName = (context.activity.from as any)?.properties?.email ||
                                   (context.activity.from as any)?.email ||
                                   (context.activity.from as any)?.userPrincipalName;
@@ -240,7 +240,7 @@ class ERABot extends ActivityHandler {
     query: string,
     firstName: string,
     managerEmail: string,
-    managerId: string
+    _managerId: string
   ): Promise<void> {
     try {
       const startTime = Date.now();
@@ -326,7 +326,7 @@ class ERABot extends ActivityHandler {
 
       // Check if there's completed calendar context to include
       const calendarState = conversationStateManager.getState(conversationId);
-      let enrichedHistory = [...conversationState.history];
+      const enrichedHistory = [...conversationState.history];
 
       if (calendarState && calendarState.type === 'calendar' && calendarState.step === 'completed') {
         // Add calendar context as a system message for Claude's reference
@@ -576,8 +576,8 @@ class ERABot extends ActivityHandler {
    */
   private formatResponseForTeams(
     response: any,
-    searchContext: any,
-    processingTime: number
+    _searchContext: any,
+    _processingTime: number
   ): any {
     // Simple text response without sources section
     let formattedText = `${response.response}`;

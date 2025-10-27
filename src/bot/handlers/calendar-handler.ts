@@ -244,7 +244,7 @@ export class CalendarHandler {
     context: TurnContext,
     conversationId: string,
     employeeName: string,
-    state: CalendarConversationState
+    _state: CalendarConversationState
   ): Promise<boolean> {
     conversationStateManager.updateCalendarState(conversationId, {
       employeeName: employeeName.trim(),
