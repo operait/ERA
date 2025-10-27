@@ -169,7 +169,7 @@ describe('Clarification Protocol - ACTIVE vs HYPOTHETICAL Detection', () => {
       const callArgs = mockOpenAICreate.mock.calls[0][0];
       const systemMessage = callArgs.messages.find((m: any) => m.role === 'system');
       expect(systemMessage.content).toContain('ACTIVE SITUATIONS');
-      expect(systemMessage.content).toContain('Clarification Hierarchy');
+      expect(systemMessage.content).toContain('Clarification for ACTIVE SITUATIONS');
     });
   });
 
@@ -372,10 +372,10 @@ describe('MASTER_PROMPT.md Integration', () => {
     const systemMessage = callArgs.messages.find((m: any) => m.role === 'system');
     const systemPrompt = systemMessage.content;
 
-    // Verify v4.0.0 structure is in the system prompt
+    // Verify v4.3.1 structure is in the system prompt
     expect(systemPrompt).toContain('ACTIVE');
-    expect(systemPrompt).toContain('HYPOTHETICAL');
-    expect(systemPrompt).toContain('Clarification Hierarchy');
-    expect(systemPrompt).toContain('Response Flow');
+    expect(systemPrompt).toContain('CRITICAL RULE');
+    expect(systemPrompt).toContain('NEVER ask multiple questions in one response');
+    expect(systemPrompt).toContain('Clarification for ACTIVE SITUATIONS');
   });
 });
