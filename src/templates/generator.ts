@@ -365,7 +365,7 @@ Please provide guidance based on the policy documents above and follow the maste
   /**
    * Extract placeholders from query and context
    */
-  private extractPlaceholders(query: string, context: string): Record<string, string> {
+  private extractPlaceholders(query: string, _context: string): Record<string, string> {
     const placeholders: Record<string, string> = {};
 
     // Common HR placeholders
@@ -375,9 +375,6 @@ Please provide guidance based on the policy documents above and follow the maste
     placeholders['DEPARTMENT'] = '[Department]';
     placeholders['INCIDENT_DATE'] = '[Incident Date]';
     placeholders['POLICY_REFERENCE'] = '[Policy Section]';
-
-    // Extract potential values from query
-    const queryLower = query.toLowerCase();
 
     // Try to extract names (simple heuristic)
     const nameMatch = query.match(/employee\s+(\w+)/i);

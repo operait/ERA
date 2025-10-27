@@ -5,7 +5,7 @@
 
 import { graphClient } from '../lib/graph-client';
 import { supabase } from '../lib/supabase';
-import type { CalendarEvent, CalendarView, TimeSlot, AvailabilityResult } from '../types/graph';
+import type { TimeSlot } from '../types/graph';
 
 export interface BookingRequest {
   employeeName: string;

@@ -84,7 +84,7 @@ class ConversationTestHarness {
   private async testConnections(): Promise<void> {
     // Test database connection
     try {
-      const testSearch = await this.retriever.getHRContext('test');
+      await this.retriever.getHRContext('test');
       console.log('Connected to Supabase: ✓');
     } catch (error) {
       throw new Error(`Supabase connection failed: ${error}`);
@@ -295,7 +295,7 @@ class ConversationTestHarness {
         }
         break;
 
-      case 'awaiting_time':
+      case 'awaiting_time': {
         const timeChoice = parseInt(input);
         if (timeChoice >= 1 && timeChoice <= 3) {
           const times = ['Tomorrow, 9:00 AM - 9:30 AM', 'Tomorrow, 2:00 PM - 2:30 PM', 'Day after tomorrow, 10:00 AM - 10:30 AM'];
@@ -307,6 +307,7 @@ class ConversationTestHarness {
           console.log('\n💬 ERA: Please enter a valid number (1-3).\n');
         }
         break;
+      }
 
       case 'awaiting_name':
         this.calendarState.employeeName = query.trim();
