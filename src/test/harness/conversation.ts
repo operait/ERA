@@ -165,6 +165,22 @@ class ConversationTestHarness {
         return;
       }
 
+      // Check if user is explicitly requesting calendar booking
+      if (this.isUserRequestingCalendarBooking(query)) {
+        const topic = calendarHandler.extractTopic(query, query);
+        this.calendarState = {
+          active: true,
+          step: 'awaiting_confirmation',
+          topic
+        };
+        console.log('\n📅 **USER REQUESTED CALENDAR BOOKING**\n');
+        console.log('💬 ERA: Would you like me to check your calendar and find some available times for that call, Barry?\n');
+        this.history.push({ role: 'user', content: query });
+        this.history.push({ role: 'assistant', content: 'Offering calendar booking' });
+        rl.prompt();
+        return;
+      }
+
       // Process user query
       await this.processQuery(query);
 
@@ -219,6 +235,36 @@ class ConversationTestHarness {
     this.stats.startTime = new Date();
     this.calendarState = { active: false, step: 'awaiting_confirmation' };
     console.log('\n🔄 Conversation reset. History cleared.\n');
+  }
+
+  /**
+   * Check if user is explicitly requesting calendar booking
+   */
+  private isUserRequestingCalendarBooking(query: string): boolean {
+    const lowerQuery = query.toLowerCase();
+    const bookingPhrases = [
+      'schedule a call',
+      'schedule the call',
+      'schedule that call',
+      'book a call',
+      'book the call',
+      'book that call',
+      'book a time',
+      'book the time',
+      'book that time',
+      'help me schedule',
+      'can you schedule',
+      'can you book',
+      'set up a call',
+      'set up the call',
+      'find a time',
+      'check my calendar',
+      'check your calendar',
+      'find available times',
+      'book time to call',
+    ];
+
+    return bookingPhrases.some(phrase => lowerQuery.includes(phrase));
   }
 
   /**
