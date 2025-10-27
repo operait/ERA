@@ -474,7 +474,7 @@ describe('Calendar Service - Timezone Handling', () => {
       const service = calendarService as any;
 
       // BUG: If we use UTC as the manager timezone, the times will be interpreted wrong
-      const busySlotsUTC = service.parseCalendarEvents(mockEvents, 'UTC');
+      // Parsing with correct timezone (Eastern)
       const busySlotsEastern = service.parseCalendarEvents(mockEvents, 'America/New_York');
 
       // Both should parse to the same UTC time (13:00 UTC = 9 AM Eastern)
