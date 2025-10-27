@@ -54,6 +54,36 @@ class ERABot extends ActivityHandler {
   }
 
   /**
+   * Check if user is explicitly requesting calendar booking
+   */
+  private isUserRequestingCalendarBooking(query: string): boolean {
+    const lowerQuery = query.toLowerCase();
+    const bookingPhrases = [
+      'schedule a call',
+      'schedule the call',
+      'schedule that call',
+      'book a call',
+      'book the call',
+      'book that call',
+      'book a time',
+      'book the time',
+      'book that time',
+      'help me schedule',
+      'can you schedule',
+      'can you book',
+      'set up a call',
+      'set up the call',
+      'find a time',
+      'check my calendar',
+      'check your calendar',
+      'find available times',
+      'book time to call',
+    ];
+
+    return bookingPhrases.some(phrase => lowerQuery.includes(phrase));
+  }
+
+  /**
    * Get or create conversation state
    */
   private getConversationState(conversationId: string): ConversationState {
@@ -248,6 +278,19 @@ class ERABot extends ActivityHandler {
       // Detect greetings (hi, hello, hey, etc.)
       if (isGreeting(userQuery)) {
         await this.handleGreeting(context, conversationId, firstName);
+        return;
+      }
+
+      // Detect explicit calendar booking requests from user
+      if (this.isUserRequestingCalendarBooking(userQuery)) {
+        const topic = calendarHandler.extractTopic(userQuery, userQuery);
+        await calendarHandler.startCalendarFlow(
+          context,
+          conversationId,
+          managerEmail,
+          topic,
+          firstName
+        );
         return;
       }
 

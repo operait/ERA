@@ -198,6 +198,8 @@ export class CalendarHandler {
       'schedule that call',
       'schedule the call',
       'call the employee',
+      'call your employee',
+      'call them',
       'phone call',
       'schedule a meeting',
       'set up a call',
@@ -210,6 +212,15 @@ export class CalendarHandler {
       'you need to call',
       'make a second call',
       'schedule that',
+      'reach out to them',
+      'reach out to your employee',
+      'contact them',
+      'contact your employee',
+      'give them a call',
+      'try calling',
+      'next step is to call',
+      'reach them',
+      'get in touch with them',
     ];
 
     const lowerResponse = response.toLowerCase();
