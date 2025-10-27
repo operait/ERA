@@ -258,7 +258,7 @@ export class CalendarHandler {
     context: TurnContext,
     conversationId: string,
     managerEmail: string,
-    firstName: string = 'there'
+    _firstName: string = 'there'
   ): Promise<void> {
     await context.sendActivity(MessageFactory.text(
       `Great! Let me check your calendar for available times...`

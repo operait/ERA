@@ -313,7 +313,7 @@ class ERABot extends ActivityHandler {
     query: string,
     firstName: string,
     managerEmail: string,
-    managerId: string
+    _managerId: string
   ): Promise<void> {
     try {
       const startTime = Date.now();
@@ -544,8 +544,8 @@ class ERABot extends ActivityHandler {
    */
   private formatResponseForTeams(
     response: any,
-    searchContext: any,
-    processingTime: number
+    _searchContext: any,
+    _processingTime: number
   ): any {
     // Simple text response without sources section
     let formattedText = `${response.response}`;

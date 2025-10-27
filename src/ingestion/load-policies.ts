@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { supabase } from '../lib/supabase';
 import { chunkByStructure } from '../lib/chunker';
-import { JSONLDocument, PolicyDocument, DocumentChunk } from '../types/index';
+import { JSONLDocument } from '../types/index';
 
 /**
  * Load and process JSONL policy files into the database

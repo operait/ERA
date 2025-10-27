@@ -203,7 +203,7 @@ export async function handleImproveCommand(
   }
 
   // Store improvement
-  const { data: improvement, error } = await supabase
+  const { error } = await supabase
     .from('tuning_improvements')
     .insert({
       turn_id: lastTurnId,
@@ -301,7 +301,7 @@ function generateCSV(
       tuning_improvements?: TuningImprovement[];
     }
   >,
-  session: PromptTuningSession
+  _session: PromptTuningSession
 ): string {
   const rows: string[] = [];
 
@@ -396,7 +396,6 @@ function csvRow(
  */
 export async function handleResetCommand(context: TurnContext): Promise<void> {
   const conversationId = context.activity.conversation.id;
-  const oldSessionId = activeSessions.get(conversationId);
 
   // End old session
   const oldSession = await endSession(context);

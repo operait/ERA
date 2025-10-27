@@ -192,8 +192,6 @@ export class ResponseEvaluator {
    * Check if query represents an ACTIVE situation (my, our, specific name)
    */
   isActiveSituation(query: string): boolean {
-    const lowerQuery = query.toLowerCase();
-
     // Contains possessive pronouns
     if (/\b(my|our)\b/i.test(query)) {
       return true;

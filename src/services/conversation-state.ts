@@ -213,7 +213,7 @@ class ConversationStateManager {
   /**
    * Clean up old states (optional, for memory management)
    */
-  cleanupOldStates(maxAgeMinutes: number = 60): void {
+  cleanupOldStates(_maxAgeMinutes: number = 60): void {
     // This is a simple implementation - in production, you'd want to track timestamps
     // For now, we keep all states in memory
     // TODO: Add timestamp tracking and cleanup logic
