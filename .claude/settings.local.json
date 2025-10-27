@@ -13,7 +13,21 @@
       "Bash(npm run logs:tail:*)",
       "Bash(git commit:*)",
       "Bash(git merge:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(gh run list:*)",
+      "Bash(npm run lint)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm ci:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(cat:*)",
+      "Bash(unset:*)",
+      "Bash(SUPABASE_URL=\"\" SUPABASE_SERVICE_ROLE_KEY=\"\" npm test:*)",
+      "Bash(test:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git fetch:*)"
     ],
     "deny": [],
     "ask": []

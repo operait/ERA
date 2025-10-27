@@ -218,6 +218,7 @@ export class CalendarHandler {
 
   /**
    * Start calendar conversation flow
+   * Now asks for initial confirmation before checking calendar
    */
   async startCalendarFlow(
     context: TurnContext,
@@ -226,10 +227,30 @@ export class CalendarHandler {
     topic: string = 'HR Discussion',
     firstName: string = 'there'
   ): Promise<void> {
+    // Start with awaiting_initial_confirmation step
     conversationStateManager.startCalendarConversation(conversationId, topic);
+    conversationStateManager.updateCalendarState(conversationId, {
+      step: 'awaiting_initial_confirmation',
+      managerEmail,
+    });
 
     await context.sendActivity(MessageFactory.text(
-      `I'll help you schedule that call${firstName !== 'there' ? ', ' + firstName : ''}. Let me check your calendar for available times...`
+      `Would you like me to check your calendar and find some available times for that call${firstName !== 'there' ? ', ' + firstName : ''}?`
+    ));
+  }
+
+  /**
+   * Check availability and show time slots
+   * Called after user confirms they want to book
+   */
+  async checkAvailabilityAndShowSlots(
+    context: TurnContext,
+    conversationId: string,
+    managerEmail: string,
+    firstName: string = 'there'
+  ): Promise<void> {
+    await context.sendActivity(MessageFactory.text(
+      `Great! Let me check your calendar for available times...`
     ));
 
     try {
@@ -348,6 +369,9 @@ export class CalendarHandler {
     }
 
     switch (state.step) {
+      case 'awaiting_initial_confirmation':
+        return await this.handleInitialConfirmation(context, conversationId, userInput, managerEmail, firstName, state);
+
       case 'awaiting_time_selection':
         return await this.handleTimeSelection(context, conversationId, userInput, state);
 
@@ -370,6 +394,39 @@ export class CalendarHandler {
 
       default:
         return false;
+    }
+  }
+
+  /**
+   * Handle initial confirmation - user deciding whether to book a call
+   */
+  private async handleInitialConfirmation(
+    context: TurnContext,
+    conversationId: string,
+    userInput: string,
+    managerEmail: string,
+    firstName: string,
+    state: CalendarConversationState
+  ): Promise<boolean> {
+    const input = userInput.toLowerCase().trim();
+
+    if (input === 'yes' || input === 'y' || input === 'yeah' || input === 'sure' || input === 'ok' || input === 'okay') {
+      // User confirmed - now check availability and show slots
+      // Use managerEmail from state if available, otherwise use the one passed in
+      const emailToUse = state.managerEmail || managerEmail;
+      await this.checkAvailabilityAndShowSlots(context, conversationId, emailToUse, firstName);
+      return true;
+    } else if (input === 'no' || input === 'n' || input === 'nah' || input === 'not now') {
+      await context.sendActivity(MessageFactory.text(
+        `No problem${firstName !== 'there' ? ', ' + firstName : ''}! Let me know if you need anything else.`
+      ));
+      conversationStateManager.clearState(conversationId);
+      return true;
+    } else {
+      await context.sendActivity(MessageFactory.text(
+        'Please reply "yes" to check your calendar, or "no" if you don\'t want to book a call right now.'
+      ));
+      return true;
     }
   }
 
