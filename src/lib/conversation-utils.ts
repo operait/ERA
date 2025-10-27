@@ -19,10 +19,27 @@ export interface QueryResolution {
  * Check if a message is a conversational ending (thank you, goodbye, etc.).
  *
  * @param query - The user's message
+ * @param conversationHistory - Optional conversation history for context
  * @returns true if the message is a conversational ending
  */
-export function isConversationalEnding(query: string): boolean {
+export function isConversationalEnding(query: string, conversationHistory?: ConversationMessage[]): boolean {
   const lowerQuery = query.toLowerCase().trim();
+
+  // Check for "no" or "nope" ONLY if it's a response to "anything else"
+  if ((lowerQuery === 'no' || lowerQuery === 'nope' || lowerQuery === 'no thanks' || lowerQuery === 'nah') && conversationHistory) {
+    const lastAssistantMessage = conversationHistory
+      .slice()
+      .reverse()
+      .find(m => m.role === 'assistant')?.content.toLowerCase() || '';
+
+    // If last assistant message asked "anything else", treat "no" as ending
+    if (lastAssistantMessage.includes('anything else') ||
+        lastAssistantMessage.includes('help you with') ||
+        lastAssistantMessage.includes('let me know if')) {
+      return true;
+    }
+  }
+
   const endings = [
     'thank',
     'thanks',
@@ -40,7 +57,10 @@ export function isConversationalEnding(query: string): boolean {
     'bye',
     'goodbye',
     'see you',
-    'talk to you later'
+    'talk to you later',
+    'all set',
+    'i\'m good',
+    'im good'
   ];
 
   return endings.some(ending => lowerQuery.includes(ending)) && query.length < 50;

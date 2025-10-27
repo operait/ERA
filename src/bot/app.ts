@@ -239,7 +239,8 @@ class ERABot extends ActivityHandler {
       ]);
 
       // Detect conversational endings (thank you, goodbye, etc.)
-      if (isConversationalEnding(userQuery)) {
+      const conversationState = this.getConversationState(conversationId);
+      if (isConversationalEnding(userQuery, conversationState.history)) {
         await this.handleConversationalEnding(context, conversationId, userQuery, firstName);
         return;
       }

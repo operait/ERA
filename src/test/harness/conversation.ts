@@ -25,6 +25,15 @@ interface SessionStats {
   totalProcessingTime: number;
 }
 
+interface CalendarSimulationState {
+  active: boolean;
+  step: 'awaiting_confirmation' | 'awaiting_time' | 'awaiting_name' | 'awaiting_phone' | 'awaiting_final_confirm';
+  topic?: string;
+  selectedTime?: string;
+  employeeName?: string;
+  employeePhone?: string;
+}
+
 class ConversationTestHarness {
   private retriever: DocumentRetriever;
   private responseGenerator: ResponseGenerator;
@@ -33,6 +42,7 @@ class ConversationTestHarness {
   private debugMode: boolean = true;
   private lastSearchContext: any = null;
   private stats: SessionStats;
+  private calendarState: CalendarSimulationState = { active: false, step: 'awaiting_confirmation' };
 
   constructor() {
     this.retriever = new DocumentRetriever();
@@ -134,8 +144,15 @@ class ConversationTestHarness {
         return;
       }
 
+      // Check if we're in a calendar simulation flow
+      if (this.calendarState.active) {
+        await this.handleCalendarStep(query);
+        rl.prompt();
+        return;
+      }
+
       // Check if it's a conversational ending (thank you, goodbye, etc.)
-      if (isConversationalEnding(query)) {
+      if (isConversationalEnding(query, this.history)) {
         this.handleConversationalEnding(query);
         rl.prompt();
         return;
@@ -200,7 +217,91 @@ class ConversationTestHarness {
     this.stats.turnCount = 0;
     this.stats.totalProcessingTime = 0;
     this.stats.startTime = new Date();
+    this.calendarState = { active: false, step: 'awaiting_confirmation' };
     console.log('\n🔄 Conversation reset. History cleared.\n');
+  }
+
+  /**
+   * Handle calendar simulation steps
+   */
+  private async handleCalendarStep(query: string): Promise<void> {
+    const input = query.toLowerCase().trim();
+
+    // Add to history
+    this.history.push({ role: 'user', content: query });
+
+    switch (this.calendarState.step) {
+      case 'awaiting_confirmation':
+        if (input === 'yes' || input === 'y' || input === 'sure' || input === 'ok' || input === 'okay') {
+          console.log('\n💬 ERA: Great! Let me check your calendar for available times...\n');
+          console.log('📅 **Available Times (SIMULATED):**\n');
+          console.log('1. Tomorrow, 9:00 AM - 9:30 AM');
+          console.log('2. Tomorrow, 2:00 PM - 2:30 PM');
+          console.log('3. Day after tomorrow, 10:00 AM - 10:30 AM');
+          console.log('\nWhich time works best? (Reply with the number)\n');
+
+          this.calendarState.step = 'awaiting_time';
+          this.history.push({ role: 'assistant', content: 'Available times shown, awaiting selection' });
+        } else {
+          console.log('\n💬 ERA: No problem, Barry! Let me know if you need anything else.\n');
+          this.calendarState = { active: false, step: 'awaiting_confirmation' };
+          this.history.push({ role: 'assistant', content: 'Calendar booking cancelled' });
+        }
+        break;
+
+      case 'awaiting_time':
+        const timeChoice = parseInt(input);
+        if (timeChoice >= 1 && timeChoice <= 3) {
+          const times = ['Tomorrow, 9:00 AM - 9:30 AM', 'Tomorrow, 2:00 PM - 2:30 PM', 'Day after tomorrow, 10:00 AM - 10:30 AM'];
+          this.calendarState.selectedTime = times[timeChoice - 1];
+          console.log('\n💬 ERA: Great! What is the employee\'s name for this call?\n');
+          this.calendarState.step = 'awaiting_name';
+          this.history.push({ role: 'assistant', content: 'Time selected, requesting employee name' });
+        } else {
+          console.log('\n💬 ERA: Please enter a valid number (1-3).\n');
+        }
+        break;
+
+      case 'awaiting_name':
+        this.calendarState.employeeName = query.trim();
+        console.log(`\n💬 ERA: What is ${query.trim()}'s phone number? (Or type "skip" if you don't have it)\n`);
+        this.calendarState.step = 'awaiting_phone';
+        this.history.push({ role: 'assistant', content: 'Employee name recorded, requesting phone' });
+        break;
+
+      case 'awaiting_phone':
+        this.calendarState.employeePhone = input === 'skip' ? undefined : query.trim();
+
+        console.log('\n📅 **Calendar Booking Preview (SIMULATED)**\n');
+        console.log(`**Employee:** ${this.calendarState.employeeName}`);
+        console.log(`**Time:** ${this.calendarState.selectedTime}`);
+        console.log(`**Topic:** ${this.calendarState.topic || 'HR Discussion'}`);
+        if (this.calendarState.employeePhone) {
+          console.log(`**Phone:** ${this.calendarState.employeePhone}`);
+        }
+        console.log('\n---\nShould I book this on your calendar? (Reply "yes" to confirm, or "no" to cancel)\n');
+
+        this.calendarState.step = 'awaiting_final_confirm';
+        this.history.push({ role: 'assistant', content: 'Showing booking preview' });
+        break;
+
+      case 'awaiting_final_confirm':
+        if (input === 'yes' || input === 'y') {
+          console.log('\n✅ ERA: Calendar event booked successfully! (SIMULATED)\n');
+          console.log(`**${this.calendarState.employeeName} - ${this.calendarState.topic}**`);
+          console.log(`${this.calendarState.selectedTime}`);
+          console.log('\n⚠️  NOTE: This is a simulation. In Teams, this would create a real Outlook calendar event.\n');
+          console.log('💬 ERA: Is there anything else I can help you with, Barry?\n');
+
+          this.history.push({ role: 'assistant', content: `Calendar booked for ${this.calendarState.employeeName}` });
+          this.calendarState = { active: false, step: 'awaiting_confirmation' };
+        } else {
+          console.log('\n💬 ERA: Booking cancelled. Is there anything else I can help you with, Barry?\n');
+          this.history.push({ role: 'assistant', content: 'Calendar booking cancelled' });
+          this.calendarState = { active: false, step: 'awaiting_confirmation' };
+        }
+        break;
+    }
   }
 
   private handleSources(): void {
@@ -356,15 +457,23 @@ class ConversationTestHarness {
     const wouldTriggerEmail = emailHandler.detectEmailRecommendationWithContext(response.response, this.history, null);
     const wouldTriggerCalendar = calendarHandler.detectCalendarRecommendationWithContext(response.response, this.history, null);
 
-    if (wouldTriggerEmail || wouldTriggerCalendar) {
-      console.log('\n' + '⚙️'.repeat(20) + ' WORKFLOW DETECTION ' + '⚙️'.repeat(20));
-      if (wouldTriggerEmail) {
-        console.log('📧 EMAIL WORKFLOW: In Teams, ERA would start the email sending workflow now.');
-      }
-      if (wouldTriggerCalendar) {
-        console.log('📅 CALENDAR WORKFLOW: In Teams, ERA would start the calendar booking workflow now.');
-      }
-      console.log('⚙️'.repeat(60));
+    if (wouldTriggerEmail) {
+      console.log('\n📧 **EMAIL WORKFLOW DETECTED** (simulation not implemented)\n');
+      console.log('⚠️  In Teams, ERA would start the email sending workflow now.\n');
+    }
+
+    if (wouldTriggerCalendar) {
+      // Start calendar simulation
+      const topic = calendarHandler.extractTopic(response.response, query);
+      this.calendarState = {
+        active: true,
+        step: 'awaiting_confirmation',
+        topic
+      };
+
+      console.log('\n📅 **CALENDAR WORKFLOW STARTED (SIMULATION)**\n');
+      console.log('💬 ERA: Would you like me to check your calendar and find some available times for that call, Barry?\n');
+      this.history.push({ role: 'assistant', content: 'Offering calendar booking' });
     }
 
     // Debug info
