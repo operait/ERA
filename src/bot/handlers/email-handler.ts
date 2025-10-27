@@ -6,6 +6,7 @@
 import { TurnContext, MessageFactory } from 'botbuilder';
 import { emailComposer } from '../../services/email-composer';
 import { conversationStateManager } from '../../services/conversation-state';
+import { intentDetector } from '../../services/intent-detector';
 import type { EmailConversationState, ConversationState } from '../../services/conversation-state';
 
 export class EmailHandler {
@@ -29,9 +30,45 @@ export class EmailHandler {
   }
 
   /**
-   * Context-aware email detection
+   * Context-aware email detection with LLM
+   * Prevents premature triggers during clarification phase
+   * Based on: specs/CONTEXT_AWARE_ACTIONS.md and specs/INTENT_DETECTION_EMAIL.md
+   */
+  async detectEmailRecommendationWithContextAsync(
+    response: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+    conversationState: ConversationState | null
+  ): Promise<boolean> {
+    // Step 1: State guard - don't trigger if already in email flow
+    if (conversationState?.type === 'email') {
+      return false;
+    }
+
+    // Step 2: Clarification detection - don't trigger if ERA is asking questions
+    if (this.containsClarifyingQuestions(response)) {
+      return false;
+    }
+
+    // Step 3: Conversation depth check - require minimum turns
+    if (conversationHistory.length < 2) {
+      return false;
+    }
+
+    // Step 4: Context gathering verification - ensure manager answered ERA's questions
+    if (!this.isContextGathered(conversationHistory)) {
+      return false;
+    }
+
+    // Step 5: LLM-based intent detection (with keyword fallback)
+    const result = await intentDetector.detectEmailIntent(response, conversationHistory);
+    return result.should_trigger;
+  }
+
+  /**
+   * Context-aware email detection (synchronous, keyword-only)
    * Prevents premature triggers during clarification phase
    * Based on: specs/CONTEXT_AWARE_ACTIONS.md
+   * @deprecated Use detectEmailRecommendationWithContextAsync for LLM-based detection
    */
   detectEmailRecommendationWithContext(
     response: string,

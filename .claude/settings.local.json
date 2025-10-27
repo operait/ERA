@@ -27,7 +27,8 @@
       "Bash(test:*)",
       "Bash(git pull:*)",
       "Bash(git stash:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(git cherry-pick:*)"
     ],
     "deny": [],
     "ask": []
