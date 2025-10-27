@@ -10,7 +10,9 @@ import * as readline from 'readline';
 import { DocumentRetriever } from '../../retrieval/search';
 import { ResponseGenerator } from '../../templates/generator';
 import { ResponseEvaluator } from '../../metrics/evaluator';
-import { isGreeting, resolveQueryForSearch, shouldFallbackToOriginalQuery } from '../../lib/conversation-utils';
+import { isGreeting, isConversationalEnding, resolveQueryForSearch, shouldFallbackToOriginalQuery } from '../../lib/conversation-utils';
+import { emailHandler } from '../../bot/handlers/email-handler';
+import { calendarHandler } from '../../bot/handlers/calendar-handler';
 
 interface ConversationHistory {
   role: 'user' | 'assistant';
@@ -132,6 +134,13 @@ class ConversationTestHarness {
         return;
       }
 
+      // Check if it's a conversational ending (thank you, goodbye, etc.)
+      if (isConversationalEnding(query)) {
+        this.handleConversationalEnding(query);
+        rl.prompt();
+        return;
+      }
+
       // Check if it's a greeting
       if (isGreeting(query)) {
         this.handleGreeting(query);
@@ -149,6 +158,23 @@ class ConversationTestHarness {
       this.showSessionSummary();
       process.exit(0);
     });
+  }
+
+  private handleConversationalEnding(query: string): void {
+    const responses = [
+      'You\'re welcome, Barry! Feel free to reach out anytime you need HR guidance. 👍',
+      'Happy to help, Barry! Let me know if anything else comes up. 😊',
+      'Glad I could assist! I\'m here whenever you need me. ✨',
+      'You got this, Barry! Reach out if you need anything else. 💪'
+    ];
+
+    const response = responses[Math.floor(Math.random() * responses.length)];
+
+    // Add to history
+    this.history.push({ role: 'user', content: query });
+    this.history.push({ role: 'assistant', content: response });
+
+    console.log(`\n💬 ERA: ${response}\n`);
   }
 
   private handleGreeting(query: string): void {
@@ -324,6 +350,22 @@ class ConversationTestHarness {
     console.log('\n' + '━'.repeat(40));
     console.log(`ERA: ${response.response}`);
     console.log('━'.repeat(40));
+
+    // Check if response recommends sending email or scheduling call
+    // Note: We pass null for conversationState since we don't track email/calendar state in test harness
+    const wouldTriggerEmail = emailHandler.detectEmailRecommendationWithContext(response.response, this.history, null);
+    const wouldTriggerCalendar = calendarHandler.detectCalendarRecommendationWithContext(response.response, this.history, null);
+
+    if (wouldTriggerEmail || wouldTriggerCalendar) {
+      console.log('\n' + '⚙️'.repeat(20) + ' WORKFLOW DETECTION ' + '⚙️'.repeat(20));
+      if (wouldTriggerEmail) {
+        console.log('📧 EMAIL WORKFLOW: In Teams, ERA would start the email sending workflow now.');
+      }
+      if (wouldTriggerCalendar) {
+        console.log('📅 CALENDAR WORKFLOW: In Teams, ERA would start the calendar booking workflow now.');
+      }
+      console.log('⚙️'.repeat(60));
+    }
 
     // Debug info
     if (this.debugMode) {

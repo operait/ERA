@@ -16,6 +16,37 @@ export interface QueryResolution {
 }
 
 /**
+ * Check if a message is a conversational ending (thank you, goodbye, etc.).
+ *
+ * @param query - The user's message
+ * @returns true if the message is a conversational ending
+ */
+export function isConversationalEnding(query: string): boolean {
+  const lowerQuery = query.toLowerCase().trim();
+  const endings = [
+    'thank',
+    'thanks',
+    'got it',
+    'perfect',
+    'sounds good',
+    'looks good',
+    'appreciate',
+    'that helps',
+    'that\'s helpful',
+    'ok',
+    'okay',
+    'great',
+    'awesome',
+    'bye',
+    'goodbye',
+    'see you',
+    'talk to you later'
+  ];
+
+  return endings.some(ending => lowerQuery.includes(ending)) && query.length < 50;
+}
+
+/**
  * Check if a message is a greeting.
  *
  * Uses strict matching to avoid false positives:
