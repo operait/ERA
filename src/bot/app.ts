@@ -6,7 +6,7 @@ import { emailHandler } from './handlers/email-handler';
 import { calendarHandler } from './handlers/calendar-handler';
 import { conversationStateManager } from '../services/conversation-state';
 import { handleImproveCommand, handlePrintCommand, handleResetCommand, storeTurn } from './handlers/prompt-tuning';
-import { isGreeting, resolveQueryForSearch, shouldFallbackToOriginalQuery } from '../lib/conversation-utils';
+import { isGreeting, isConversationalEnding, resolveQueryForSearch, shouldFallbackToOriginalQuery } from '../lib/conversation-utils';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -239,7 +239,7 @@ class ERABot extends ActivityHandler {
       ]);
 
       // Detect conversational endings (thank you, goodbye, etc.)
-      if (this.isConversationalEnding(userQuery)) {
+      if (isConversationalEnding(userQuery)) {
         await this.handleConversationalEnding(context, conversationId, userQuery, firstName);
         return;
       }
@@ -429,34 +429,6 @@ class ERABot extends ActivityHandler {
     this.addToHistory(conversationId, 'assistant', response);
 
     await context.sendActivity(MessageFactory.text(response));
-  }
-
-  /**
-   * Check if message is a conversational ending
-   */
-  private isConversationalEnding(query: string): boolean {
-    const lowerQuery = query.toLowerCase().trim();
-    const endings = [
-      'thank',
-      'thanks',
-      'got it',
-      'perfect',
-      'sounds good',
-      'looks good',
-      'appreciate',
-      'that helps',
-      'that\'s helpful',
-      'ok',
-      'okay',
-      'great',
-      'awesome',
-      'bye',
-      'goodbye',
-      'see you',
-      'talk to you later'
-    ];
-
-    return endings.some(ending => lowerQuery.includes(ending)) && query.length < 50;
   }
 
   /**
